@@ -22,12 +22,12 @@ Grafo criaGrafo(void);
 void deletaGrafo(Grafo g);
 /*
    Função que deleta um grafo.
-   Recebe como parâmetro o ponteio do grafo a ser deletado
+   Recebe como parâmetro o ponteiro do grafo a ser deletado
 */
 
 Vertice adicionarVertice(Grafo g, const char* id, double x, double y);
 /*
-   Função que deleta um grafo.
+   Função que adiciona um vértice.
    Primeiro parâmetro é o grafo a ser inserido o vértice
    Segundo parâmetro é o ID que será associado ao vértice
    Terceiro e Quarto parâmetros são, respectivamente, a posição horizontal e vertical do vértice
@@ -37,9 +37,17 @@ Vertice adicionarVertice(Grafo g, const char* id, double x, double y);
 Vertice buscarVertice(Grafo g, const char* id);
 /*
    Função que busca um vértice.
-   Primeiro parâmetro é o grafo a ser inserido o vértice
-   Segundo parâmetro é o ID que será associado ao vértice
+   Primeiro parâmetro é o grafo a ser procurado o vértice
+   Segundo parâmetro é o ID que está associado ao vértice
    Retorna um ponteiro para este vértice encontrado.
+*/
+
+Aresta buscarAresta(Grafo g, const char* origem, const char* destino);
+/*
+   Função que busca uma aresta.
+   Primeiro parâmetro é o grafo a ser procurado a aresta
+   Segundo e Terceiro parâmetros são o ponto de origem e destino da aresta
+   Retorna um ponteiro para esta aresta encontrada.
 */
 
 double getVerticeX(Vertice v);
