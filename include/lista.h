@@ -82,6 +82,14 @@ No anteriorNo(No n);
    Retorna um ponteiro pro nó anterior da lista.
 */
 
+No buscarNo(Lista l, void* info);
+/*
+   Função para buscar o nó que contém determinada informação.
+   Primeiro parâmetro é o ponteiro para a lista.
+   Segundo parâmetro é a informação procurada.
+   Retorna o nó que contém a informação ou NULL caso não encontre.
+*/
+
 void* getInfo(No n);
 /*
    Função para obter a informação armazenada de um nó.
