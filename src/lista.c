@@ -111,42 +111,50 @@ bool listaVazia(Lista l){
     return tamanhoLista(l) == 0;
 }
 
-
 No primeiroNo(Lista l){
     if(l == NULL)return NULL;
     return ((Lista*) l)->primeiro;
 }
-
 
 No ultimoNo(Lista l){
     if(l == NULL)return NULL;
     return ((Lista*) l)->ultimo;
 }
 
-
 No proximoNo(No n){
     if(n == NULL)return NULL;
     return ((No*) n)->prox;
 }
-
 
 No anteriorNo(No n){
     if(n == NULL)return NULL;
     return ((No*) n)->ant;
 }
 
+No buscarNo(Lista l, void* info){
+    if(l == NULL)
+        return NULL;
+
+    for(No n = primeiroNo(l);
+        n != NULL;
+        n = proximoNo(n)){
+
+        if(getInfo(n) == info)
+            return n;
+    }
+
+    return NULL;
+}
 
 void* getInfo(No n){
     if(n == NULL)return NULL;
     return ((No*) n)->info;
 }
 
-
 void setInfo(No n, void* info){
     if(n == NULL)return;
     ((No*) n)->info = info;
 }
-
 
 void deletaLista(Lista l){
     if(l == NULL)return;
