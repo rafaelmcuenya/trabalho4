@@ -1,8 +1,6 @@
 #ifndef GRAFO_H
 #define GRAFO_H
 
-#include <stddef.h>
-#include <stdio.h>
 #include <stdbool.h>
 
 /*
