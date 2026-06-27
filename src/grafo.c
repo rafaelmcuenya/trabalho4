@@ -1,217 +1,379 @@
-#inlcude "lista.h"
 #include "grafo.h"
+#include "lista.h"
+#include <stdlib.h>
+#include <string.h>
 #include <stdbool.h>
-#include <stdio.h>
 
-typedef struct Vertice{
-    char* info[5];           // Dificilmente chegará em v9999, mas por garantia...
+
+typedef struct VerticeStruct{
+    char* id;
     double x;
     double y;
-} VerticeStruct;
+    Lista arestasAdj;
+}VerticeStruct;
 
-typedef struct Aresta{
-    char* origem[100];
-    char* destino[100];
-    char* ldir[32];
-    char* lesq[32];
-    double comp;
+
+typedef struct ArestaStruct{
+    Vertice origem;
+    Vertice destino;
+    char* ldir;
+    char* lesq;
+    char* nomeRua;
+    double comprimento;
     double velMedia;
-    char* nomeRua[100];
-} Arestatruct;
-
-typedef struct Grafo{
-    // Erro encontrado, corrigir depois  
-} GrafoStruct;
+    bool ativa;
+}ArestaStruct;
 
 
-Grafo criaGrafo(){
-    GrafoStruct* g = malloc(sizeof(GrafoStruct));
-    if (!g) return NULL;
-  // Erro encontrado, corrigir depois
+typedef struct GrafoStruct{
+    Lista vertices;
+    Lista arestas;
+    int numVertices;
+    int numArestas;
+}GrafoStruct;
+
+
+static char* copiarString(const char* str){
+    if(str == NULL) return NULL;
+    char* copia = malloc(strlen(str) + 1);
+    if(copia == NULL) return NULL;
+    
+    strcpy(copia, str);
+    return copia;
 }
 
-void deletaGrafo(Grafo g);
-/*
-   Função que deleta um grafo.
-   Recebe como parâmetro o ponteiro do grafo a ser deletado
-*/
 
-Vertice adicionarVertice(Grafo g, const char* id, double x, double y);
-/*
-   Função que adiciona um vértice.
-   Primeiro parâmetro é o grafo a ser inserido o vértice
-   Segundo parâmetro é o ID que será associado ao vértice
-   Terceiro e Quarto parâmetros são, respectivamente, a posição horizontal e vertical do vértice
-   Retorna um ponteiro para este vértice recém criado
-*/
 
-Vertice buscarVertice(Grafo g, const char* id);
-/*
-   Função que busca um vértice.
-   Primeiro parâmetro é o grafo a ser procurado o vértice
-   Segundo parâmetro é o ID que está associado ao vértice
-   Retorna um ponteiro para este vértice encontrado.
-*/
+Grafo criaGrafo(void){
+    GrafoStruct* g = malloc(sizeof(GrafoStruct));
+    if(g == NULL) return NULL;
 
-double getVerticeX(Vertice v);
-/*
-   Função que retorna a coordenada horizontal de um vértice.
-   Recebe como parâmetro o vértice desejado.
-   Retorna a coordenada X deste vértice.
-*/
+    g->vertices = criaLista();
+    g->arestas = criaLista();
 
-double getVerticeY(Vertice v);
-/*
-   Função que retorna a coordenada vertical de um vértice.
-   Recebe como parâmetro o vértice desejado.
-   Retorna a coordenada Y deste vértice.
-*/
+    if(g->vertices == NULL || g->arestas == NULL){
+        if(g->vertices != NULL) deletaLista(g->vertices);
+        if(g->arestas != NULL) deletaLista(g->arestas);
 
-const char* getVerticeId(Vertice v);
-/*
-   Função que retorna o ID de um vértice.
-   Recebe como parâmetro o vértice desejado.
-   Retorna uma string contendo o ID deste vértice.
-*/
+        free(g);
+        return NULL;
+    }
+
+    g->numVertices = 0;
+    g->numArestas = 0;
+    return g;
+}
+
+
+void deletaGrafo(Grafo g){
+    if(g == NULL) return;
+
+    GrafoStruct* grafo = (GrafoStruct*) g;
+    No noAresta = primeiroNo(grafo->arestas);
+
+    while(noAresta != NULL){
+        No prox = proximoNo(noAresta);
+        ArestaStruct* a = (ArestaStruct*) getInfo(noAresta);
+
+        if(a != NULL){
+            free(a->ldir);
+            free(a->lesq);
+            free(a->nomeRua);
+            free(a);
+        }
+        noAresta = prox;
+    }
+
+    deletaLista(grafo->arestas);
+    No noVertice = primeiroNo(grafo->vertices);
+
+    while(noVertice != NULL){
+        No prox = proximoNo(noVertice);
+
+        VerticeStruct* v = (VerticeStruct*) getInfo(noVertice);
+
+        if(v != NULL){
+            free(v->id);
+            deletaLista(v->arestasAdj);
+            free(v);
+        }
+
+        noVertice = prox;
+    }
+
+    deletaLista(grafo->vertices);
+    free(grafo);
+}
+
+
+Vertice adicionarVertice(Grafo g, const char* id,
+                         double x, double y){
+
+    if(g == NULL || id == NULL) return NULL;
+    if(buscarVertice(g, id) != NULL) return NULL;
+
+    GrafoStruct* grafo = (GrafoStruct*) g;
+    VerticeStruct* v = malloc(sizeof(VerticeStruct));
+
+    if(v == NULL) return NULL;
+
+    v->id = copiarString(id);
+
+    if(v->id == NULL){
+        free(v);
+        return NULL;
+    }
+
+    v->x = x;
+    v->y = y;
+    v->arestasAdj = criaLista();
+
+    if(v->arestasAdj == NULL){
+        free(v->id);
+        free(v);
+        return NULL;
+    }
+
+    inserirFim(grafo->vertices, v);
+    grafo->numVertices++;
+    return v;
+}
+
+
+Vertice buscarVertice(Grafo g, const char* id){
+    if(g == NULL || id == NULL) return NULL;
+
+    GrafoStruct* grafo = (GrafoStruct*) g;
+
+    for(No n = primeiroNo(grafo->vertices);
+        n != NULL; n = proximoNo(n)){
+
+        VerticeStruct* v = (VerticeStruct*) getInfo(n);
+        if(v == NULL) continue;
+        if(strcmp(v->id, id) == 0) return v;
+    }
+
+    return NULL;
+}
+
+
+double getVerticeX(Vertice v){
+    if(v == NULL) return 0;
+    return ((VerticeStruct*) v)->x;
+}
+
+
+double getVerticeY(Vertice v){
+    if(v == NULL) return 0;
+    return ((VerticeStruct*) v)->y;
+}
+
+
+const char* getVerticeId(Vertice v){
+    if(v == NULL) return NULL;
+    return ((VerticeStruct*) v)->id;
+}
+
 
 Aresta adicionarAresta(Grafo g, const char* origem, const char* destino,
-const char* ldir, const char* lesq, double comp, double velMedia, const char* nomeRua);
-/*
-   Função que adiciona uma aresta ao grafo.
-   Primeiro parâmetro é o grafo onde a aresta será inserida.
-   Segundo parâmetro é o ID do vértice de origem.
-   Terceiro parâmetro é o ID do vértice de destino.
-   Quarto parâmetro é o CEP da quadra à direita da aresta.
-   Quinto parâmetro é o CEP da quadra à esquerda da aresta.
-   Sexto parâmetro é o comprimento da aresta.
-   Sétimo parâmetro é a velocidade média da aresta.
-   Oitavo parâmetro é o nome da rua associada à aresta.
-   Retorna um ponteiro para a aresta recém criada.
-*/
+                       const char* ldir, const char* lesq, double comp,
+                       double velMedia, const char* nomeRua){
 
-Aresta buscarAresta(Grafo g, const char* origem, const char* destino);
-/*
-   Função que busca uma aresta.
-   Primeiro parâmetro é o grafo a ser procurado a aresta
-   Segundo e Terceiro parâmetros são o ponto de origem e destino da aresta
-   Retorna um ponteiro para esta aresta encontrada.
-*/
+    if(g == NULL) return NULL;
 
-void offAresta(Aresta a);
-/*
-   Função que desabilita uma aresta.
-   Recebe como parâmetro a aresta a ser desabilitada.
-*/
+    if(origem == NULL || destino == NULL) return NULL;
 
-void onAresta(Aresta a);
-/*
-   Função que habilita uma aresta.
-   Recebe como parâmetro a aresta a ser habilitada.
-*/
+    if(comp < 0 || velMedia < 0) return NULL;
 
-bool arestaAtiva(Aresta a);
-/*
-   Função que verifica se uma aresta está ativa.
-   Recebe como parâmetro a aresta desejada.
-   Retorna 1 caso esteja ativa e 0 caso contrário.
-*/
+    GrafoStruct* grafo = (GrafoStruct*) g;
+    Vertice vOrigem = buscarVertice(g, origem);
+    Vertice vDestino = buscarVertice(g, destino);
 
-Vertice getOrigem(Aresta a);
-/*
-   Função que retorna o vértice de origem de uma aresta.
-   Recebe como parâmetro a aresta desejada.
-   Retorna o vértice de origem.
-*/
+    if(vOrigem == NULL || vDestino == NULL) return NULL;
+    if(buscarAresta(g, origem, destino) != NULL) return NULL;
+    
+    ArestaStruct* a = malloc(sizeof(ArestaStruct));
+    if(a == NULL) return NULL;
 
-Vertice getDestino(Aresta a);
-/*
-   Função que retorna o vértice de destino de uma aresta.
-   Recebe como parâmetro a aresta desejada.
-   Retorna o vértice de destino.
-*/
+    a->origem = vOrigem;
+    a->destino = vDestino;
+    a->ldir = copiarString(ldir);
+    a->lesq = copiarString(lesq);
+    a->nomeRua = copiarString(nomeRua);
+    a->comprimento = comp;
+    a->velMedia = velMedia;
+    a->ativa = true;
 
-double getComprimento(Aresta a);
-/*
-   Função que retorna o comprimento de uma aresta.
-   Recebe como parâmetro a aresta desejada.
-   Retorna o comprimento da aresta.
-*/
+    if((ldir != NULL && a->ldir == NULL) || (lesq != NULL && a->lesq == NULL) ||
+        (nomeRua != NULL && a->nomeRua == NULL)){
 
-double getVelocidadeMedia(Aresta a);
-/*
-   Função que retorna a velocidade média de uma aresta.
-   Recebe como parâmetro a aresta desejada.
-   Retorna a velocidade média da aresta.
-*/
+        free(a->ldir);
+        free(a->lesq);
+        free(a->nomeRua);
+        free(a);
+        return NULL;
+    }
 
-void setVelocidadeMedia(Aresta a, double novaVel);
-/*
-   Função que altera a velocidade média de uma aresta.
-   Primeiro parâmetro é a aresta desejada.
-   Segundo parâmetro é a nova velocidade média.
-*/
+    inserirFim(grafo->arestas, a);
+    inserirFim(((VerticeStruct*)vOrigem)->arestasAdj, a);
+    grafo->numArestas++;
+    return a;
+}
 
-const char* getNomeRua(Aresta a);
-/*
-   Função que retorna o nome da rua associado à aresta.
-   Recebe como parâmetro a aresta desejada.
-   Retorna uma string contendo o nome da rua.
-*/
 
-const char* getLdir(Aresta a);
-/*
-   Função que retorna o CEP da quadra à direita da aresta.
-   Recebe como parâmetro a aresta desejada.
-   Retorna uma string contendo o CEP.
-*/
+Aresta buscarAresta(Grafo g, const char* origem, const char* destino){
+    if(g == NULL) return NULL;
+    if(origem == NULL || destino == NULL) return NULL;
 
-const char* getLesq(Aresta a);
-/*
-   Função que retorna o CEP da quadra à esquerda da aresta.
-   Recebe como parâmetro a aresta desejada.
-   Retorna uma string contendo o CEP.
-*/
+    GrafoStruct* grafo = (GrafoStruct*) g;
 
-int quantVertices(Grafo g);
-/*
-   Função que retorna a quantidade de vértices do grafo.
-   Recebe como parâmetro o grafo desejado.
-   Retorna a quantidade de vértices.
-*/
+    for(No n = primeiroNo(grafo->arestas);
+        n != NULL; n = proximoNo(n)){
 
-int quantArestas(Grafo g);
-/*
-   Função que retorna a quantidade de arestas do grafo.
-   Recebe como parâmetro o grafo desejado.
-   Retorna a quantidade de arestas.
-*/
+        ArestaStruct* a = (ArestaStruct*) getInfo(n);
 
-Vertice primeiroVertice(Grafo g);
-/*
-   Função que retorna o primeiro vértice do grafo.
-   Recebe como parâmetro o grafo desejado.
-   Retorna o primeiro vértice encontrado.
-*/
+        if(a == NULL) continue;
 
-Vertice proximoVertice(Grafo g, Vertice atual);
-/*
-   Função que retorna o próximo vértice do grafo.
-   Primeiro parâmetro é o grafo desejado.
-   Segundo parâmetro é o vértice atual.
-   Retorna o próximo vértice após o atual.
-*/
+        if(strcmp(getVerticeId(a->origem), origem) == 0 &&
+            strcmp(getVerticeId(a->destino), destino) == 0){
+            return a;
+        }
+    }
 
-Aresta primeiraArestaAdj(Vertice v);
-/*
-   Função que retorna a primeira aresta adjacente de um vértice.
-   Recebe como parâmetro o vértice desejado.
-   Retorna a primeira aresta adjacente.
-*/
+    return NULL;
+}
 
-Aresta proximaArestaAdj(Vertice v, Aresta atual);
-/*
-   Função que retorna a próxima aresta adjacente de um vértice.
-   Primeiro parâmetro é o vértice desejado.
-   Segundo parâmetro é a aresta atual.
-   Retorna a próxima aresta adjacente após a atual.
-*/
+
+void offAresta(Aresta a){
+    if(a == NULL) return;
+    ((ArestaStruct*)a)->ativa = false;
+}
+
+
+void onAresta(Aresta a){
+    if(a == NULL) return;
+    ((ArestaStruct*)a)->ativa = true;
+}
+
+
+bool arestaAtiva(Aresta a){
+    if(a == NULL) return false;
+    return ((ArestaStruct*)a)->ativa;
+}
+
+
+Vertice getOrigem(Aresta a){
+    if(a == NULL) return NULL;
+    return ((ArestaStruct*)a)->origem;
+}
+
+
+Vertice getDestino(Aresta a){
+    if(a == NULL) return NULL;
+    return ((ArestaStruct*)a)->destino;
+}
+
+
+double getComprimento(Aresta a){
+    if(a == NULL) return 0;
+    return ((ArestaStruct*)a)->comprimento;
+}
+
+
+double getVelocidadeMedia(Aresta a){
+    if(a == NULL) return 0;
+    return ((ArestaStruct*)a)->velMedia;
+}
+
+
+void setVelocidadeMedia(Aresta a, double novaVel){
+    if(a == NULL) return;
+    if(novaVel < 0) return;
+
+    ((ArestaStruct*)a)->velMedia = novaVel;
+}
+
+
+const char* getNomeRua(Aresta a){
+    if(a == NULL) return NULL;
+    return ((ArestaStruct*)a)->nomeRua;
+}
+
+
+const char* getLdir(Aresta a){
+    if(a == NULL) return NULL;
+    return ((ArestaStruct*)a)->ldir;
+}
+
+
+const char* getLesq(Aresta a){
+    if(a == NULL) return NULL;
+    return ((ArestaStruct*)a)->lesq;
+}
+
+
+int quantVertices(Grafo g){
+    if(g == NULL) return 0;
+    return ((GrafoStruct*)g)->numVertices;
+}
+
+
+int quantArestas(Grafo g){
+    if(g == NULL) return 0;
+    return ((GrafoStruct*)g)->numArestas;
+}
+
+
+Vertice primeiroVertice(Grafo g){
+    if(g == NULL) return NULL;
+    
+    GrafoStruct* grafo = (GrafoStruct*) g;
+    No n = primeiroNo(grafo->vertices);
+    
+    if(n == NULL) return NULL;
+    return getInfo(n);
+}
+
+
+Vertice proximoVertice(Grafo g, Vertice atual){
+    if(g == NULL || atual == NULL) return NULL;
+    GrafoStruct* grafo = (GrafoStruct*) g;
+
+    for(No n = primeiroNo(grafo->vertices);
+        n != NULL; n = proximoNo(n)){
+
+        if(getInfo(n) == atual){
+            n = proximoNo(n);
+            if(n == NULL) return NULL;
+            return getInfo(n);
+        }
+    }
+    return NULL;
+}
+
+
+Aresta primeiraArestaAdj(Vertice v){
+    if(v == NULL) return NULL;
+    VerticeStruct* vertice = (VerticeStruct*) v;
+    No n = primeiroNo(vertice->arestasAdj);
+
+    if(n == NULL) return NULL;
+    return getInfo(n);
+}
+
+
+Aresta proximaArestaAdj(Vertice v, Aresta atual){
+    if(v == NULL || atual == NULL) return NULL;
+    VerticeStruct* vertice = (VerticeStruct*) v;
+
+    for(No n = primeiroNo(vertice->arestasAdj);
+        n != NULL;n = proximoNo(n)){
+
+        if(getInfo(n) == atual){
+            n = proximoNo(n);
+            if(n == NULL) return NULL;
+            return getInfo(n);
+        }
+    }
+    return NULL;
+}
