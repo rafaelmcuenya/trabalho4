@@ -71,6 +71,13 @@ const char* getVerticeId(Vertice v);
    Retorna uma string contendo o ID deste vértice.
 */
 
+int getIndiceVertice(Vertice v);
+/*
+   Função que retorna o índice numérico de um vértice.
+   Recebe como parâmetro o vértice desejado.
+   Retorna o índice do vértice ou -1 se inválido.
+*/
+
 Aresta adicionarAresta(Grafo g, const char* origem, const char* destino,
 const char* ldir, const char* lesq, double comp, double velMedia, const char* nomeRua);
 /*
