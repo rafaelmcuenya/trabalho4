@@ -67,14 +67,12 @@ Grafo criaGrafo(void){
 
 void deletaGrafo(Grafo g){
     if(g == NULL) return;
-
     GrafoStruct* grafo = (GrafoStruct*) g;
+    
     No noAresta = primeiroNo(grafo->arestas);
-
     while(noAresta != NULL){
         No prox = proximoNo(noAresta);
         ArestaStruct* a = (ArestaStruct*) getInfo(noAresta);
-
         if(a != NULL){
             free(a->ldir);
             free(a->lesq);
@@ -83,7 +81,22 @@ void deletaGrafo(Grafo g){
         }
         noAresta = prox;
     }
-
+    deletaLista(grafo->arestas);  
+    
+    No noVertice = primeiroNo(grafo->vertices);
+    while(noVertice != NULL){
+        No prox = proximoNo(noVertice);
+        VerticeStruct* v = (VerticeStruct*) getInfo(noVertice);
+        if(v != NULL){
+            free(v->id);
+            deletaLista(v->arestasAdj);  
+            free(v);
+        }
+        noVertice = prox;
+    }
+    deletaLista(grafo->vertices);
+    free(grafo);
+}
     deletaLista(grafo->arestas);
     No noVertice = primeiroNo(grafo->vertices);
 
