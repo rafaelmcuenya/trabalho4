@@ -183,7 +183,7 @@ Aresta adicionarAresta(Grafo g, const char* origem, const char* destino,
 
     if(origem == NULL || destino == NULL) return NULL;
 
-    if(comp < 0 || velMedia < 0) return NULL;
+    if(comp <= 0 || velMedia <= 0) return NULL;
 
     GrafoStruct* grafo = (GrafoStruct*) g;
     Vertice vOrigem = buscarVertice(g, origem);
