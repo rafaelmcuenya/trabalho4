@@ -3,12 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <assert.h>
 
 
 typedef struct VerticeStruct{
     char* id;
     double x;
     double y;
+    int indice;              
     Lista arestasAdj;
 }VerticeStruct;
 
@@ -43,7 +45,6 @@ static char* copiarString(const char* str){
 }
 
 
-
 Grafo criaGrafo(void){
     GrafoStruct* g = malloc(sizeof(GrafoStruct));
     if(g == NULL) return NULL;
@@ -67,6 +68,7 @@ Grafo criaGrafo(void){
 
 void deletaGrafo(Grafo g){
     if(g == NULL) return;
+    
     GrafoStruct* grafo = (GrafoStruct*) g;
     
     No noAresta = primeiroNo(grafo->arestas);
@@ -78,10 +80,11 @@ void deletaGrafo(Grafo g){
             free(a->lesq);
             free(a->nomeRua);
             free(a);
+            setInfo(noAresta, NULL);
         }
         noAresta = prox;
     }
-    deletaLista(grafo->arestas);  
+    deletaLista(grafo->arestas);
     
     No noVertice = primeiroNo(grafo->vertices);
     while(noVertice != NULL){
@@ -89,40 +92,22 @@ void deletaGrafo(Grafo g){
         VerticeStruct* v = (VerticeStruct*) getInfo(noVertice);
         if(v != NULL){
             free(v->id);
-            deletaLista(v->arestasAdj);  
-            free(v);
-        }
-        noVertice = prox;
-    }
-    deletaLista(grafo->vertices);
-    free(grafo);
-}
-    deletaLista(grafo->arestas);
-    No noVertice = primeiroNo(grafo->vertices);
-
-    while(noVertice != NULL){
-        No prox = proximoNo(noVertice);
-
-        VerticeStruct* v = (VerticeStruct*) getInfo(noVertice);
-
-        if(v != NULL){
-            free(v->id);
             deletaLista(v->arestasAdj);
             free(v);
+            setInfo(noVertice, NULL);
         }
-
         noVertice = prox;
     }
-
     deletaLista(grafo->vertices);
+    
     free(grafo);
 }
 
 
-Vertice adicionarVertice(Grafo g, const char* id,
-                         double x, double y){
-
-    if(g == NULL || id == NULL) return NULL;
+Vertice adicionarVertice(Grafo g, const char* id, double x, double y){
+    assert(g != NULL);
+    assert(id != NULL);
+    
     if(buscarVertice(g, id) != NULL) return NULL;
 
     GrafoStruct* grafo = (GrafoStruct*) g;
@@ -139,6 +124,7 @@ Vertice adicionarVertice(Grafo g, const char* id,
 
     v->x = x;
     v->y = y;
+    v->indice = grafo->numVertices;  
     v->arestasAdj = criaLista();
 
     if(v->arestasAdj == NULL){
@@ -154,7 +140,8 @@ Vertice adicionarVertice(Grafo g, const char* id,
 
 
 Vertice buscarVertice(Grafo g, const char* id){
-    if(g == NULL || id == NULL) return NULL;
+    assert(g != NULL);
+    assert(id != NULL);
 
     GrafoStruct* grafo = (GrafoStruct*) g;
 
@@ -171,32 +158,37 @@ Vertice buscarVertice(Grafo g, const char* id){
 
 
 double getVerticeX(Vertice v){
-    if(v == NULL) return 0;
+    assert(v != NULL);
     return ((VerticeStruct*) v)->x;
 }
 
 
 double getVerticeY(Vertice v){
-    if(v == NULL) return 0;
+    assert(v != NULL);
     return ((VerticeStruct*) v)->y;
 }
 
 
 const char* getVerticeId(Vertice v){
-    if(v == NULL) return NULL;
+    assert(v != NULL);
     return ((VerticeStruct*) v)->id;
+}
+
+
+int getIndiceVertice(Vertice v){
+    assert(v != NULL);
+    return ((VerticeStruct*) v)->indice;
 }
 
 
 Aresta adicionarAresta(Grafo g, const char* origem, const char* destino,
                        const char* ldir, const char* lesq, double comp,
                        double velMedia, const char* nomeRua){
-
-    if(g == NULL) return NULL;
-
-    if(origem == NULL || destino == NULL) return NULL;
-
-    if(comp <= 0 || velMedia <= 0) return NULL;
+    assert(g != NULL);
+    assert(origem != NULL);
+    assert(destino != NULL);
+    assert(comp > 0);
+    assert(velMedia > 0);
 
     GrafoStruct* grafo = (GrafoStruct*) g;
     Vertice vOrigem = buscarVertice(g, origem);
@@ -235,8 +227,9 @@ Aresta adicionarAresta(Grafo g, const char* origem, const char* destino,
 
 
 Aresta buscarAresta(Grafo g, const char* origem, const char* destino){
-    if(g == NULL) return NULL;
-    if(origem == NULL || destino == NULL) return NULL;
+    assert(g != NULL);
+    assert(origem != NULL);
+    assert(destino != NULL);
 
     GrafoStruct* grafo = (GrafoStruct*) g;
 
@@ -258,87 +251,87 @@ Aresta buscarAresta(Grafo g, const char* origem, const char* destino){
 
 
 void offAresta(Aresta a){
-    if(a == NULL) return;
+    assert(a != NULL);
     ((ArestaStruct*)a)->ativa = false;
 }
 
 
 void onAresta(Aresta a){
-    if(a == NULL) return;
+    assert(a != NULL);
     ((ArestaStruct*)a)->ativa = true;
 }
 
 
 bool arestaAtiva(Aresta a){
-    if(a == NULL) return false;
+    assert(a != NULL);
     return ((ArestaStruct*)a)->ativa;
 }
 
 
 Vertice getOrigem(Aresta a){
-    if(a == NULL) return NULL;
+    assert(a != NULL);
     return ((ArestaStruct*)a)->origem;
 }
 
 
 Vertice getDestino(Aresta a){
-    if(a == NULL) return NULL;
+    assert(a != NULL);
     return ((ArestaStruct*)a)->destino;
 }
 
 
 double getComprimento(Aresta a){
-    if(a == NULL) return 0;
+    assert(a != NULL);
     return ((ArestaStruct*)a)->comprimento;
 }
 
 
 double getVelocidadeMedia(Aresta a){
-    if(a == NULL) return 0;
+    assert(a != NULL);
     return ((ArestaStruct*)a)->velMedia;
 }
 
 
 void setVelocidadeMedia(Aresta a, double novaVel){
-    if(a == NULL) return;
-    if(novaVel < 0) return;
+    assert(a != NULL);
+    assert(novaVel >= 0);
 
     ((ArestaStruct*)a)->velMedia = novaVel;
 }
 
 
 const char* getNomeRua(Aresta a){
-    if(a == NULL) return NULL;
+    assert(a != NULL);
     return ((ArestaStruct*)a)->nomeRua;
 }
 
 
 const char* getLdir(Aresta a){
-    if(a == NULL) return NULL;
+    assert(a != NULL);
     return ((ArestaStruct*)a)->ldir;
 }
 
 
 const char* getLesq(Aresta a){
-    if(a == NULL) return NULL;
+    assert(a != NULL);
     return ((ArestaStruct*)a)->lesq;
 }
 
 
 int quantVertices(Grafo g){
-    if(g == NULL) return 0;
+    assert(g != NULL);
     return ((GrafoStruct*)g)->numVertices;
 }
 
 
 int quantArestas(Grafo g){
-    if(g == NULL) return 0;
+    assert(g != NULL);
     return ((GrafoStruct*)g)->numArestas;
 }
 
 
 Vertice primeiroVertice(Grafo g){
-    if(g == NULL) return NULL;
+    assert(g != NULL);
     
     GrafoStruct* grafo = (GrafoStruct*) g;
     No n = primeiroNo(grafo->vertices);
@@ -349,7 +342,9 @@ Vertice primeiroVertice(Grafo g){
 
 
 Vertice proximoVertice(Grafo g, Vertice atual){
-    if(g == NULL || atual == NULL) return NULL;
+    assert(g != NULL);
+    assert(atual != NULL);
+    
     GrafoStruct* grafo = (GrafoStruct*) g;
 
     for(No n = primeiroNo(grafo->vertices);
@@ -366,7 +361,8 @@ Vertice proximoVertice(Grafo g, Vertice atual){
 
 
 Aresta primeiraArestaAdj(Vertice v){
-    if(v == NULL) return NULL;
+    assert(v != NULL);
+    
     VerticeStruct* vertice = (VerticeStruct*) v;
     No n = primeiroNo(vertice->arestasAdj);
 
@@ -376,11 +372,13 @@ Aresta primeiraArestaAdj(Vertice v){
 
 
 Aresta proximaArestaAdj(Vertice v, Aresta atual){
-    if(v == NULL || atual == NULL) return NULL;
+    assert(v != NULL);
+    assert(atual != NULL);
+    
     VerticeStruct* vertice = (VerticeStruct*) v;
 
     for(No n = primeiroNo(vertice->arestasAdj);
-        n != NULL;n = proximoNo(n)){
+        n != NULL; n = proximoNo(n)){
 
         if(getInfo(n) == atual){
             n = proximoNo(n);
