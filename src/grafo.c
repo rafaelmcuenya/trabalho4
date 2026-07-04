@@ -157,6 +157,24 @@ Vertice buscarVertice(Grafo g, const char* id){
 }
 
 
+Vertice getVerticeByIndice(Grafo g, int indice){
+    assert(g != NULL);
+    assert(indice >= 0);
+    
+    GrafoStruct* grafo = (GrafoStruct*) g;
+    
+    if (indice >= grafo->numVertices) return NULL;
+    
+    No no = primeiroNo(grafo->vertices);
+    for (int i = 0; i < indice; i++) {
+        no = proximoNo(no);
+        if (no == NULL) return NULL;
+    }
+    
+    return getInfo(no);
+}
+
+
 double getVerticeX(Vertice v){
     assert(v != NULL);
     return ((VerticeStruct*) v)->x;
