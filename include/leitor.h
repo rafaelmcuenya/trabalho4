@@ -5,41 +5,49 @@
 #include <stdbool.h>
 
 /*
-   O leitor é responsável por processar arquivos de comando (.geo, .pm e .qry) que definem as operações do projeto.
-   Ele coordena as operações evolvendo as quadras, pessoas, moradores, entre outros.
+   O leitor é responsável por processar arquivos de comando (.geo, .via e .qry) que definem as operações do projeto.
 */
 
-void inicializarSistema(const char *nomeBase, const char *outputDir);
+void inicializarSistema(const char* nomeBase, const char* outputDir);
 /*
-   Inicializa todos os componentes do sistema. Deve ser chamado antes de processar qualquer arquivo.
-   Primeiro parâmetro é o nome base para os hashfiles.
+   Função que inicializa o sistema, criando as estruturas de dados.
+   Primeiro parâmetro é o nome base dos arquivos (sem extensão).
    Segundo parâmetro é o diretório de saída.
 */
 
 void finalizarSistema(void);
 /*
-   Libera toda a memória alocada, fecha hashfiles e finaliza o sistema.
-   Deve ser chamado ao término da execução.
+   Função que finaliza o sistema, liberando toda a memória alocada.
+   Persiste os dados em disco e fecha os arquivos abertos.
 */
 
-void processarArquivoGeo(const char *caminho, const char *inputDir, const char *nomeBase, const char *outputDir);
+void processarArquivoGeo(const char* caminho, const char* inputDir,
+                         const char* nomeBase, const char* outputDir);
 /*
-   Processa o arquivo .geo, gerando o SVG inicial da cidade.
+   Função que processa o arquivo .geo.
+   Primeiro parâmetro é o nome do arquivo .geo.
+   Segundo parâmetro é o diretório de entrada.
+   Terceiro parâmetro é o nome base dos arquivos.
+   Quarto parâmetro é o diretório de saída.
 */
 
-
-//Editar dps
-void processarArquivoPm(const char *caminho, const char *inputDir, const char *nomeBase);
+void processarArquivoVia(const char* caminho, const char* inputDir);
 /*
-   Processa o arquivo .pm, cadastrando habitantes e moradores nos hashfiles.
+   Função que processa o arquivo .via.
+   Primeiro parâmetro é o nome do arquivo .via.
+   Segundo parâmetro é o diretório de entrada.
+   Constrói o grafo viário a partir do arquivo.
 */
 
-
-
-void processarArquivoQry(const char *caminho, const char *inputDir, const char *nomeBase, const char *outputDir);
+void processarArquivoQry(const char* caminho, const char* inputDir,
+                         const char* nomeBase, const char* outputDir);
 /*
-   Processa o arquivo .qry, gerando o SVG final e TXT com resultados das consultas.
+   Função que processa o arquivo .qry.
+   Primeiro parâmetro é o nome do arquivo .qry.
+   Segundo parâmetro é o diretório de entrada.
+   Terceiro parâmetro é o nome base dos arquivos.
+   Quarto parâmetro é o diretório de saída.
+   Gera os arquivos .svg e .txt de saída.
 */
-
 
 #endif
