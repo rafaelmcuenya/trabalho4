@@ -36,10 +36,18 @@ Vertice adicionarVertice(Grafo g, const char* id, double x, double y);
 
 Vertice buscarVertice(Grafo g, const char* id);
 /*
-   Função que busca um vértice.
+   Função que busca um vértice pelo ID (String).
    Primeiro parâmetro é o grafo a ser procurado o vértice
    Segundo parâmetro é o ID que está associado ao vértice
-   Retorna um ponteiro para este vértice encontrado.
+   Retorna o vértice encontrado ou NULL se não existir.
+*/
+
+Vertice getVerticeIndice(Grafo g, int indice);
+/*
+   Função que busca um vértice pelo ID (Inteiro).
+   Primeiro parâmetro é o grafo a ser procurado o vértice
+   Segundo parâmetro é o ID que está associado ao vértice
+   Retorna o vértice correspondente ou NULL se não existir.
 */
 
 Aresta buscarAresta(Grafo g, const char* origem, const char* destino);
