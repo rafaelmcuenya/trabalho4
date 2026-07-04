@@ -1,46 +1,45 @@
 #include "leitor.h"
 #include "trataNomeArquivo.h"
 #include "quadra.h"
-#include "habitante.h"
-#include "morador.h"
 #include "hashfile.h"
+#include "grafo.h"
+#include "dijkstra.h"
+#include "conexos.h"
+#include "agm.h"
 #include "svg.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <assert.h>
+#include <math.h>
 
 #define MAX_LINHA 1024
 #define TAM_BUFFER_SERIAL 4096
+#define NUM_REGISTRADORES 11
+#define INFINITO DBL_MAX
 
-static HashFile *hfQuadras = NULL;
-static HashFile *hfHabitantes = NULL;
-static HashFile *hfMoradores = NULL;
 
-static char corPreenchimento[32] = "white";
-static char corBorda[32] = "black";
+typedef struct {
+    double x;
+    double y;
+    bool ativo;
+} Registrador;
+
+
+static HashFile* hfQuadras = NULL;
+static Grafo grafo = NULL;
+static char corPreenchimento[32] = "#808080";
+static char corBorda[32] = "#ff00ff";
 static double espessuraBorda = 1.0;
-
+static Registrador registradores[NUM_REGISTRADORES];
 static char nomeBaseGlobal[FILE_NAME_LEN];
 static char outputDirGlobal[PATH_LEN];
+static FILE* arquivoTxt = NULL;
+static SVGFile svgFile = NULL;
 
-static FILE *arquivoTxt = NULL;
-static FILE *svgFileQry = NULL;
 
-static int homensCenso = 0;
-static int mulheresCenso = 0;
-static int homensMoradoresCenso = 0;
-static int mulheresMoradoresCenso = 0;
-static int semTetoHomensCenso = 0;
-static int semTetoMulheresCenso = 0;
-
-static int pqFaceN = 0;
-static int pqFaceS = 0;
-static int pqFaceL = 0;
-static int pqFaceO = 0;
-static char pqCepAtual[32];
-
-static void construirCaminhoCompleto(const char *baseDir, const char *arquivo, char *caminhoCompleto) {
+static void construirCaminhoCompleto(const char* baseDir, const char* arquivo, char* caminhoCompleto) {
     if (!baseDir || strlen(baseDir) == 0) {
         strcpy(caminhoCompleto, arquivo);
         return;
@@ -53,7 +52,8 @@ static void construirCaminhoCompleto(const char *baseDir, const char *arquivo, c
     }
 }
 
-static void abrirArquivo(FILE **f, const char *caminho) {
+
+static void abrirArquivo(FILE** f, const char* caminho) {
     *f = fopen(caminho, "r");
     if (!(*f)) {
         fprintf(stderr, "Erro: Não foi possível abrir %s\n", caminho);
@@ -61,16 +61,81 @@ static void abrirArquivo(FILE **f, const char *caminho) {
     }
 }
 
-static void cmdQ(const char *cep, double x, double y, double w, double h,
-                 const char *cfill, const char *cstrk, double sw) {
-    Quadra q = criaQuadra(cep, x, y, w, h, cfill, cstrk, sw);
+
+static void inicializarRegistradores(void) {
+    for (int i = 0; i < NUM_REGISTRADORES; i++) {
+        registradores[i].x = 0.0;
+        registradores[i].y = 0.0;
+        registradores[i].ativo = false;
+    }
+}
+
+
+static int obterIndiceRegistrador(const char* reg) {
+    if (reg[0] != 'R' && reg[0] != 'r') return -1;
+    int idx = atoi(reg + 1);
+    if (idx < 0 || idx >= NUM_REGISTRADORES) return -1;
+    return idx;
+}
+
+
+static Vertice encontrarVerticeMaisProximo(Grafo g, double x, double y) {
+    Vertice maisProximo = NULL;
+    double menorDistancia = INFINITO;
+
+    Vertice v = primeiroVertice(g);
+    while (v != NULL) {
+        double vx = getVerticeX(v);
+        double vy = getVerticeY(v);
+        double dx = vx - x;
+        double dy = vy - y;
+        double dist = sqrt(dx*dx + dy*dy);
+
+        if (dist < menorDistancia) {
+            menorDistancia = dist;
+            maisProximo = v;
+        }
+        v = proximoVertice(g, v);
+    }
+
+    return maisProximo;
+}
+
+
+static void gerarDescricaoPercurso(FILE* txt, Caminho caminho, const char* tipo) {
+    if (!caminho || tamanhoCaminho(caminho) == 0) {
+        fprintf(txt, "  %s: Nenhum caminho encontrado\n", tipo);
+        return;
+    }
+
+    fprintf(txt, "  %s (custo total: %.2f):\n", tipo, getCustoTotal(caminho));
+
+    int numArestas = tamanhoCaminho(caminho);
+    for (int i = 0; i < numArestas; i++) {
+        Aresta a = getArestaCaminho(caminho, i);
+        if (a) {
+            Vertice origem = getOrigem(a);
+            Vertice destino = getDestino(a);
+            const char* nomeRua = getNomeRua(a);
+            double comp = getComprimento(a);
+
+            fprintf(txt, "    %d: %s -> %s (%s, %.2fm)\n",
+                    i + 1, getVerticeId(origem), getVerticeId(destino),
+                    nomeRua ? nomeRua : "sem nome", comp);
+        }
+    }
+}
+
+
+static void cmdQ(const char* cep, double x, double y, double w, double h) {
+    Quadra q = criaQuadra(cep, x, y, w, h, corPreenchimento, corBorda, espessuraBorda);
     if (!q) {
         fprintf(stderr, "Erro: falha ao criar quadra %s\n", cep);
         return;
     }
 
     size_t tam = tamSerialQuadra();
-    void *buffer = malloc(tam);
+    void* buffer = malloc(tam);
     if (!buffer) {
         fprintf(stderr, "Erro: falha de alocação ao serializar quadra\n");
         freeQuadra(q);
@@ -90,7 +155,7 @@ static void cmdQ(const char *cep, double x, double y, double w, double h,
     freeQuadra(q);
 }
 
-static void cmdCq(double sw, const char *cfill, const char *cstrk) {
+static void cmdCq(double sw, const char* cfill, const char* cstrk) {
     espessuraBorda = sw;
     strncpy(corPreenchimento, cfill, 31);
     corPreenchimento[31] = '\0';
@@ -98,563 +163,239 @@ static void cmdCq(double sw, const char *cfill, const char *cstrk) {
     corBorda[31] = '\0';
 }
 
-static void cmdP(const char *cpf, const char *nome, const char *sobrenome,
-                 char sexo, const char *nasc) {
-    size_t tamExistente = tamSerialHabitante();
-    void *bufferExistente = malloc(tamExistente);
-    if (bufferExistente) {
-        if (buscaHF(hfHabitantes, cpf, bufferExistente, &tamExistente) == 1) {
-            fprintf(stderr, "Aviso: habitante com CPF %s já existe\n", cpf);
-            free(bufferExistente);
-            return;
-        }
-        free(bufferExistente);
+
+static void processarArquivoVia(FILE* f) {
+    char linha[MAX_LINHA];
+    int numVertices = 0;
+    int verticesLidos = 0;
+
+    if (fgets(linha, sizeof(linha), f)) {
+        numVertices = atoi(linha);
+        printf("[VIA] Número de vértices: %d\n", numVertices);
     }
 
-    Habitante h = criaHabitante(cpf, nome, sobrenome, sexo, nasc);
-    if (!h) {
-        fprintf(stderr, "Erro: falha ao criar habitante %s\n", cpf);
-        return;
-    }
+    while (verticesLidos < numVertices && fgets(linha, sizeof(linha), f)) {
+        if (linha[0] == '\n' || linha[0] == '#') continue;
 
-    size_t tam = tamSerialHabitante();
-    void *buffer = malloc(tam);
-    if (!buffer) {
-        fprintf(stderr, "Erro: falha de alocação ao serializar habitante\n");
-        freeHabitante(h);
-        return;
-    }
+        char comando[10];
+        sscanf(linha, "%s", comando);
 
-    serialHabitante(h, buffer, tam);
-    int ret = insertHF(hfHabitantes, cpf, buffer, tam);
-
-    if (ret < 0) {
-        fprintf(stderr, "Erro: falha ao inserir habitante %s no hashfile\n", cpf);
-    }
-
-    free(buffer);
-    freeHabitante(h);
-}
-
-static void cmdM(const char *cpf, const char *cep, char face, int num, const char *compl) {
-    size_t tamHab = tamSerialHabitante();
-    void *bufferHab = malloc(tamHab);
-    if (!bufferHab) return;
-
-    if (buscaHF(hfHabitantes, cpf, bufferHab, &tamHab) != 1) {
-        fprintf(stderr, "Erro: habitante com CPF %s não encontrado para moradia\n", cpf);
-        free(bufferHab);
-        return;
-    }
-
-    Habitante h = desserialHabitante(bufferHab, tamHab);
-    free(bufferHab);
-
-    if (!h) return;
-
-    if (isMoradorHabitante(h)) {
-        fprintf(stderr, "Aviso: habitante %s já possui moradia\n", cpf);
-        freeHabitante(h);
-        return;
-    }
-
-    char endereco[128];
-    if (compl && strlen(compl) > 0) {
-        snprintf(endereco, sizeof(endereco), "%s/%c/%d/%s", cep, face, num, compl);
-    } else {
-        snprintf(endereco, sizeof(endereco), "%s/%c/%d", cep, face, num);
-    }
-    setIdMoradiaHabitante(h, endereco);
-
-    size_t tamHabAtualizado = tamSerialHabitante();
-    void *bufferAtualizado = malloc(tamHabAtualizado);
-    if (!bufferAtualizado) {
-        freeHabitante(h);
-        return;
-    }
-
-    serialHabitante(h, bufferAtualizado, tamHabAtualizado);
-    refreshHF(hfHabitantes, cpf, bufferAtualizado, tamHabAtualizado);
-    free(bufferAtualizado);
-
-    Morador m = criaMorador(cpf, getNomeHabitante(h), getSobrenomeHabitante(h),
-                            getSexoHabitante(h), getNascHabitante(h),
-                            cep, face, num, compl);
-
-    if (!m) {
-        fprintf(stderr, "Erro: falha ao criar morador %s\n", cpf);
-        freeHabitante(h);
-        return;
-    }
-
-    size_t tamMor = tamSerialMorador();
-    void *bufferMor = malloc(tamMor);
-    if (!bufferMor) {
-        freeMorador(m);
-        freeHabitante(h);
-        return;
-    }
-
-    serialMorador(m, bufferMor, tamMor);
-    int ret = insertHF(hfMoradores, cpf, bufferMor, tamMor);
-
-    if (ret == 0) {
-        fprintf(stderr, "Aviso: morador com CPF %s já existe\n", cpf);
-    } else if (ret < 0) {
-        fprintf(stderr, "Erro: falha ao inserir morador %s no hashfile\n", cpf);
-    }
-
-    free(bufferMor);
-    freeMorador(m);
-    freeHabitante(h);
-}
-
-static void callbackRq(const char *chave, const void *dado, sizeT tamDado, void *contexto) {
-    const char *cep = (const char*)contexto;
-
-    Morador m = desserialMorador((void*)dado, tamDado);
-    if (!m) return;
-
-    if (strcmp(getCepMorador(m), cep) == 0) {
-        fprintf(arquivoTxt, "  CPF: %s - Nome: %s %s\n",
-                getCpfMorador(m), getNomeMorador(m), getSobrenomeMorador(m));
-
-        size_t tamHab = tamSerialHabitante();
-        void *bufferHab = malloc(tamHab);
-        if (bufferHab) {
-            if (buscaHF(hfHabitantes, getCpfMorador(m), bufferHab, &tamHab) == 1) {
-                Habitante h = desserialHabitante(bufferHab, tamHab);
-                if (h) {
-                    setIdMoradiaHabitante(h, NULL);
-                    size_t tamAtualizado = tamSerialHabitante();
-                    void *bufferAtualizado = malloc(tamAtualizado);
-                    if (bufferAtualizado) {
-                        serialHabitante(h, bufferAtualizado, tamAtualizado);
-                        refreshHF(hfHabitantes, getCpfMorador(m), bufferAtualizado, tamAtualizado);
-                        free(bufferAtualizado);
-                    }
-                    freeHabitante(h);
-                }
+        if (strcmp(comando, "v") == 0) {
+            char id[64];
+            double x, y;
+            if (sscanf(linha, "%*s %s %lf %lf", id, &x, &y) == 3) {
+                adicionarVertice(grafo, id, x, y);
+                verticesLidos++;
             }
-            free(bufferHab);
         }
-
-        deletarItemHF(hfMoradores, getCpfMorador(m));
     }
 
-    freeMorador(m);
+    while (fgets(linha, sizeof(linha), f)) {
+        if (linha[0] == '\n' || linha[0] == '#') continue;
+
+        char comando[10];
+        sscanf(linha, "%s", comando);
+
+        if (strcmp(comando, "e") == 0) {
+            char origem[64], destino[64], ldir[64], lesq[64], nomeRua[128];
+            double comp, velMedia;
+            if (sscanf(linha, "%*s %s %s %s %s %lf %lf %[^\n]", 
+                       origem, destino, ldir, lesq, &comp, &velMedia, nomeRua) == 7) {
+                adicionarAresta(grafo, origem, destino, ldir, lesq, comp, velMedia, nomeRua);
+            }
+        }
+    }
 }
 
-static void cmdRq(const char *cep) {
-    size_t tamQuadra = tamSerialQuadra();
-    void *bufferQuadra = malloc(tamQuadra);
-    if (!bufferQuadra) return;
 
-    Quadra q = NULL;
-    if (buscaHF(hfQuadras, cep, bufferQuadra, &tamQuadra) == 1) {
-        q = desserialQuadra(bufferQuadra, tamQuadra);
-    }
-    free(bufferQuadra);
-
-    if (!q) {
-        fprintf(stderr, "Erro: quadra %s não encontrada para remoção\n", cep);
+static void cmdAtO(char reg, const char* cep, char face, int num) {
+    int idx = obterIndiceRegistrador(&reg);
+    if (idx < 0) {
+        fprintf(stderr, "Erro: registrador inválido %c\n", reg);
         return;
     }
 
-    fprintf(arquivoTxt, "[*] rq %s\n", cep);
-    fprintf(arquivoTxt, "Moradores removidos:\n");
+    size_t tam = tamSerialQuadra();
+    void* buffer = malloc(tam);
+    if (!buffer) return;
 
-    iterarHF(hfMoradores, callbackRq, (void*)cep);
-
-    if (svgFileQry) {
-        svgMarcarRemocaoQuadra(svgFileQry, q);
+    if (buscaHF(hfQuadras, cep, buffer, &tam) != 1) {
+        fprintf(stderr, "Erro: quadra %s não encontrada\n", cep);
+        free(buffer);
+        return;
     }
+
+    Quadra q = desserialQuadra(buffer, tam);
+    free(buffer);
+
+    if (!q) return;
+
+    double x, y;
+    getPontoEndQuadra(q, face, (double)num, &x, &y);
+    registradores[idx].x = x;
+    registradores[idx].y = y;
+    registradores[idx].ativo = true;
+
+    fprintf(arquivoTxt, "[*] @o? R%d %s %c %d\n", idx, cep, face, num);
+    fprintf(arquivoTxt, "Coordenada: (%.2f, %.2f)\n", x, y);
+
+    char rotulo[8];
+    snprintf(rotulo, sizeof(rotulo), "R%d", idx);
+    desenharPontoReferencia(svgFile, x, y, rotulo);
 
     freeQuadra(q);
-    deletarItemHF(hfQuadras, cep);
 }
 
-static void callbackPq(const char *chave, const void *dado, sizeT tamDado, void *contexto) {
-    Morador m = desserialMorador((void*)dado, tamDado);
-    if (!m) return;
 
-    if (strcmp(getCepMorador(m), pqCepAtual) == 0) {
-        char face = getFaceMorador(m);
-        if (face == 'N') pqFaceN++;
-        else if (face == 'S') pqFaceS++;
-        else if (face == 'L') pqFaceL++;
-        else if (face == 'O') pqFaceO++;
-    }
+static void cmdMvm(double x, double y, double w, double h, double v) {
+    fprintf(arquivoTxt, "[*] mvm %.2f %.2f %.2f %.2f %.2f\n", x, y, w, h, v);
 
-    freeMorador(m);
-}
+    Vertice vertice = primeiroVertice(grafo);
+    int arestasAtualizadas = 0;
 
-static void cmdPq(const char *cep) {
-    pqFaceN = 0;
-    pqFaceS = 0;
-    pqFaceL = 0;
-    pqFaceO = 0;
-    strncpy(pqCepAtual, cep, 31);
-    pqCepAtual[31] = '\0';
+    while (vertice != NULL) {
+        Aresta a = primeiraArestaAdj(vertice);
+        while (a != NULL) {
+            Vertice origem = getOrigem(a);
+            Vertice destino = getDestino(a);
+            double x1 = getVerticeX(origem);
+            double y1 = getVerticeY(origem);
+            double x2 = getVerticeX(destino);
+            double y2 = getVerticeY(destino);
 
-    iterarHF(hfMoradores, callbackPq, NULL);
+            double midX = (x1 + x2) / 2.0;
+            double midY = (y1 + y2) / 2.0;
 
-    int totalQuadra = pqFaceN + pqFaceS + pqFaceL + pqFaceO;
-
-    fprintf(arquivoTxt, "[*] pq %s\n", cep);
-    fprintf(arquivoTxt, "Face N: %d moradores\n", pqFaceN);
-    fprintf(arquivoTxt, "Face S: %d moradores\n", pqFaceS);
-    fprintf(arquivoTxt, "Face L: %d moradores\n", pqFaceL);
-    fprintf(arquivoTxt, "Face O: %d moradores\n", pqFaceO);
-    fprintf(arquivoTxt, "Total: %d moradores\n", totalQuadra);
-
-    if (svgFileQry) {
-        size_t tamQ = tamSerialQuadra();
-        void *bufQ = malloc(tamQ);
-        if (bufQ && buscaHF(hfQuadras, cep, bufQ, &tamQ) == 1) {
-            Quadra q = desserialQuadra(bufQ, tamQ);
-            if (q) {
-                svgMarcarMoradoresPorFace(svgFileQry, q, pqFaceN, pqFaceS, pqFaceL, pqFaceO);
-                freeQuadra(q);
+            if (midX >= x && midX <= x + w && midY >= y && midY <= y + h) {
+                setVelocidadeMedia(a, v);
+                arestasAtualizadas++;
             }
+            a = proximaArestaAdj(vertice, a);
         }
-        free(bufQ);
+        vertice = proximoVertice(grafo, vertice);
     }
+
+    fprintf(arquivoTxt, "Arestas atualizadas: %d\n", arestasAtualizadas);
 }
 
-static void callbackCensoHab(const char *chave, const void *dado, sizeT tamDado, void *contexto) {
-    Habitante h = desserialHabitante((void*)dado, tamDado);
-    if (!h) return;
 
-    char sexo = getSexoHabitante(h);
-    if (sexo == 'M') {
-        homensCenso++;
-        if (!isMoradorHabitante(h)) {
-            semTetoHomensCenso++;
-        }
-    } else if (sexo == 'F') {
-        mulheresCenso++;
-        if (!isMoradorHabitante(h)) {
-            semTetoMulheresCenso++;
-        }
-    }
+static void cmdRegs(double vl) {
+    fprintf(arquivoTxt, "[*] regs %.2f\n", vl);
 
-    freeHabitante(h);
-}
-
-static void callbackCensoMor(const char *chave, const void *dado, sizeT tamDado, void *contexto) {
-    Morador m = desserialMorador((void*)dado, tamDado);
-    if (!m) return;
-
-    char sexo = getSexoMorador(m);
-    if (sexo == 'M') {
-        homensMoradoresCenso++;
-    } else if (sexo == 'F') {
-        mulheresMoradoresCenso++;
-    }
-
-    freeMorador(m);
-}
-
-static void cmdCenso(void) {
-    homensCenso = 0;
-    mulheresCenso = 0;
-    homensMoradoresCenso = 0;
-    mulheresMoradoresCenso = 0;
-    semTetoHomensCenso = 0;
-    semTetoMulheresCenso = 0;
-
-    iterarHF(hfHabitantes, callbackCensoHab, NULL);
-    iterarHF(hfMoradores, callbackCensoMor, NULL);
-
-    int totalHabitantes = homensCenso + mulheresCenso;
-    int totalMoradores = homensMoradoresCenso + mulheresMoradoresCenso;
-    int semTeto = totalHabitantes - totalMoradores;
-    int semTetoHomens = semTetoHomensCenso;
-    int semTetoMulheres = semTetoMulheresCenso;
-
-    fprintf(arquivoTxt, "[*] censo\n");
-    fprintf(arquivoTxt, "Total de habitantes: %d\n", totalHabitantes);
-    fprintf(arquivoTxt, "Total de moradores: %d\n", totalMoradores);
-
-    if (totalHabitantes > 0) {
-        fprintf(arquivoTxt, "Proporção moradores/habitantes: %.2f%%\n",
-                100.0 * totalMoradores / totalHabitantes);
-    }
-
-    fprintf(arquivoTxt, "Homens: %d\n", homensCenso);
-    fprintf(arquivoTxt, "Mulheres: %d\n", mulheresCenso);
-
-    if (totalHabitantes > 0) {
-        fprintf(arquivoTxt, "%% Homens: %.2f%%\n", 100.0 * homensCenso / totalHabitantes);
-        fprintf(arquivoTxt, "%% Mulheres: %.2f%%\n", 100.0 * mulheresCenso / totalHabitantes);
-    }
-
-    if (totalMoradores > 0) {
-        fprintf(arquivoTxt, "%% Moradores homens: %.2f%%\n", 100.0 * homensMoradoresCenso / totalMoradores);
-        fprintf(arquivoTxt, "%% Moradores mulheres: %.2f%%\n", 100.0 * mulheresMoradoresCenso / totalMoradores);
-    }
-
-    fprintf(arquivoTxt, "Sem-teto: %d\n", semTeto);
-
-    if (semTeto > 0) {
-        fprintf(arquivoTxt, "%% Sem-teto homens: %.2f%%\n", 100.0 * semTetoHomens / semTeto);
-        fprintf(arquivoTxt, "%% Sem-teto mulheres: %.2f%%\n", 100.0 * semTetoMulheres / semTeto);
-    }
-}
-
-static void cmdH(const char *cpf) {
-    fprintf(arquivoTxt, "[*] h? %s\n", cpf);
-
-    size_t tamHab = tamSerialHabitante();
-    void *bufferHab = malloc(tamHab);
-    if (!bufferHab) return;
-
-    if (buscaHF(hfHabitantes, cpf, bufferHab, &tamHab) == 1) {
-        Habitante h = desserialHabitante(bufferHab, tamHab);
-        if (h) {
-            fprintf(arquivoTxt, "CPF: %s\n", getCpfHabitante(h));
-            fprintf(arquivoTxt, "Nome: %s %s\n", getNomeHabitante(h), getSobrenomeHabitante(h));
-            fprintf(arquivoTxt, "Sexo: %c\n", getSexoHabitante(h));
-            fprintf(arquivoTxt, "Nascimento: %s\n", getNascHabitante(h));
-
-            if (isMoradorHabitante(h)) {
-                fprintf(arquivoTxt, "Endereço: %s\n", getIdMoradiaHabitante(h));
-            } else {
-                fprintf(arquivoTxt, "Situação: Sem-teto\n");
-            }
-
-            freeHabitante(h);
-        }
-    } else {
-        fprintf(arquivoTxt, "Habitante não encontrado\n");
-    }
-
-    free(bufferHab);
-}
-
-static void cmdNasc(const char *cpf, const char *nome, const char *sobrenome,
-                    char sexo, const char *nasc) {
-    fprintf(arquivoTxt, "[*] nasc %s %s %s %c %s\n", cpf, nome, sobrenome, sexo, nasc);
-
-    size_t tamExistente = tamSerialHabitante();
-    void *bufferExistente = malloc(tamExistente);
-    if (bufferExistente) {
-        if (buscaHF(hfHabitantes, cpf, bufferExistente, &tamExistente) == 1) {
-            fprintf(arquivoTxt, "Erro: CPF %s já existe\n", cpf);
-            free(bufferExistente);
-            return;
-        }
-        free(bufferExistente);
-    }
-
-    Habitante h = criaHabitante(cpf, nome, sobrenome, sexo, nasc);
-    if (!h) {
-        fprintf(arquivoTxt, "Erro ao criar habitante\n");
+    ListaComponentes componentes = encontrarComponentes(grafo, vl);
+    if (!componentes) {
+        fprintf(arquivoTxt, "Número de componentes conexos: 0\n");
         return;
     }
 
-    size_t tam = tamSerialHabitante();
-    void *buffer = malloc(tam);
-    if (buffer) {
-        serialHabitante(h, buffer, tam);
-        insertHF(hfHabitantes, cpf, buffer, tam);
-        free(buffer);
-    }
+    int numComp = quantComponentes(componentes);
+    fprintf(arquivoTxt, "Número de componentes conexos: %d\n", numComp);
 
-    fprintf(arquivoTxt, "Habitante criado: %s %s\n", nome, sobrenome);
-    freeHabitante(h);
-}
+    for (int i = 0; i < numComp; i++) {
+        Componente c = getComponente(componentes, i);
+        if (c) {
+            double x = getBBoxX(c);
+            double y = getBBoxY(c);
+            double w = getBBoxW(c);
+            double h = getBBoxH(c);
+            const char* cor = getCorComponente(c);
 
-static void cmdRip(const char *cpf) {
-    fprintf(arquivoTxt, "[*] rip %s\n", cpf);
-
-    size_t tamHab = tamSerialHabitante();
-    void *bufferHab = malloc(tamHab);
-    if (!bufferHab) return;
-
-    if (buscaHF(hfHabitantes, cpf, bufferHab, &tamHab) == 1) {
-        Habitante h = desserialHabitante(bufferHab, tamHab);
-        if (h) {
-            fprintf(arquivoTxt, "Falecido: %s %s\n", getNomeHabitante(h), getSobrenomeHabitante(h));
-            fprintf(arquivoTxt, "CPF: %s\n", getCpfHabitante(h));
-            fprintf(arquivoTxt, "Sexo: %c\n", getSexoHabitante(h));
-            fprintf(arquivoTxt, "Nascimento: %s\n", getNascHabitante(h));
-
-            if (isMoradorHabitante(h)) {
-                const char *idMoradia = getIdMoradiaHabitante(h);
-                fprintf(arquivoTxt, "Endereço: %s\n", idMoradia);
-
-                if (svgFileQry && idMoradia) {
-                    char cep[32], face;
-                    int num;
-                    if (sscanf(idMoradia, "%[^/]/%c/%d", cep, &face, &num) == 3) {
-                        size_t tamQ = tamSerialQuadra();
-                        void *bufQ = malloc(tamQ);
-                        if (bufQ && buscaHF(hfQuadras, cep, bufQ, &tamQ) == 1) {
-                            Quadra q = desserialQuadra(bufQ, tamQ);
-                            if (q) {
-                                double x, y;
-                                getPontoEndQuadra(q, face, (double)num, &x, &y);
-                                svgMarcarFalecimento(svgFileQry, x, y);
-                                freeQuadra(q);
-                            }
-                        }
-                        free(bufQ);
-                    }
-                }
-
-                deletarItemHF(hfMoradores, cpf);
-            }
-
-            freeHabitante(h);
+            desenharRetangulo(svgFile, x, y, w, h, cor, cor, 2.0, 0.5);
         }
-
-        deletarItemHF(hfHabitantes, cpf);
-    } else {
-        fprintf(arquivoTxt, "Habitante não encontrado\n");
     }
 
-    free(bufferHab);
+    deletaListaComponentes(componentes);
 }
 
-static void cmdMud(const char *cpf, const char *cep, char face, int num, const char *compl) {
-    fprintf(arquivoTxt, "[*] mud %s %s %c %d %s\n", cpf, cep, face, num, compl ? compl : "");
 
-    size_t tamHab = tamSerialHabitante();
-    void *bufferHab = malloc(tamHab);
-    if (!bufferHab) return;
+static void cmdExp(double vl) {
+    fprintf(arquivoTxt, "[*] exp %.2f\n", vl);
 
-    if (buscaHF(hfHabitantes, cpf, bufferHab, &tamHab) != 1) {
-        fprintf(arquivoTxt, "Habitante não encontrado\n");
-        free(bufferHab);
+    ArvoreGeradoraMinima agm = calcularAGM(grafo, vl);
+    if (!agm) {
+        fprintf(arquivoTxt, "Nenhuma aresta selecionada\n");
         return;
     }
 
-    Habitante h = desserialHabitante(bufferHab, tamHab);
-    free(bufferHab);
+    int numArestas = tamanhoAGM(agm);
+    fprintf(arquivoTxt, "Arestas selecionadas para ampliação: %d\n", numArestas);
 
-    if (!h) return;
+    for (int i = 0; i < numArestas; i++) {
+        Aresta a = getArestaAGM(agm, i);
+        if (a) {
+            Vertice origem = getOrigem(a);
+            Vertice destino = getDestino(a);
+            double velAntiga = getVelocidadeMedia(a);
+            double velNova = velAntiga * 1.5;
 
-    size_t tamQ = tamSerialQuadra();
-    void *bufQ = malloc(tamQ);
-    Quadra q = NULL;
-    if (bufQ && buscaHF(hfQuadras, cep, bufQ, &tamQ) == 1) {
-        q = desserialQuadra(bufQ, tamQ);
-    }
-    free(bufQ);
+            desenharArestaSelecionadaAGM(svgFile, origem, destino, "#FF0000", 4.0);
+            setVelocidadeMedia(a, velNova);
 
-    deletarItemHF(hfMoradores, cpf);
-
-    char endereco[128];
-    if (compl && strlen(compl) > 0) {
-        snprintf(endereco, sizeof(endereco), "%s/%c/%d/%s", cep, face, num, compl);
-    } else {
-        snprintf(endereco, sizeof(endereco), "%s/%c/%d", cep, face, num);
-    }
-    setIdMoradiaHabitante(h, endereco);
-
-    size_t tamAtualizado = tamSerialHabitante();
-    void *bufferAtualizado = malloc(tamAtualizado);
-    if (bufferAtualizado) {
-        serialHabitante(h, bufferAtualizado, tamAtualizado);
-        refreshHF(hfHabitantes, cpf, bufferAtualizado, tamAtualizado);
-        free(bufferAtualizado);
-    }
-
-    Morador m = criaMorador(cpf, getNomeHabitante(h), getSobrenomeHabitante(h),
-                            getSexoHabitante(h), getNascHabitante(h),
-                            cep, face, num, compl);
-    if (m) {
-        size_t tamMor = tamSerialMorador();
-        void *bufferMor = malloc(tamMor);
-        if (bufferMor) {
-            serialMorador(m, bufferMor, tamMor);
-            insertHF(hfMoradores, cpf, bufferMor, tamMor);
-            free(bufferMor);
+            fprintf(arquivoTxt, "  %s -> %s: %.2f -> %.2f (rua: %s)\n",
+                    getVerticeId(origem), getVerticeId(destino),
+                    velAntiga, velNova,
+                    getNomeRua(a) ? getNomeRua(a) : "sem nome");
         }
-        freeMorador(m);
     }
 
-    if (svgFileQry && q) {
-        double x, y;
-        getPontoEndQuadra(q, face, (double)num, &x, &y);
-        svgMarcarMudanca(svgFileQry, x, y, cpf);
-    }
-
-    if (q) freeQuadra(q);
-    freeHabitante(h);
-    fprintf(arquivoTxt, "Mudança realizada\n");
+    deletaAGM(agm);
 }
 
-static void cmdDspj(const char *cpf) {
-    fprintf(arquivoTxt, "[*] dspj %s\n", cpf);
 
-    size_t tamMor = tamSerialMorador();
-    void *bufferMor = malloc(tamMor);
-    if (!bufferMor) return;
+static void cmdP(char reg1, char reg2, const char* corCurto, const char* corRapido) {
+    int idx1 = obterIndiceRegistrador(&reg1);
+    int idx2 = obterIndiceRegistrador(&reg2);
 
-    if (buscaHF(hfMoradores, cpf, bufferMor, &tamMor) == 1) {
-        Morador m = desserialMorador(bufferMor, tamMor);
-        if (m) {
-            fprintf(arquivoTxt, "Despejado: %s %s\n", getNomeMorador(m), getSobrenomeMorador(m));
-            fprintf(arquivoTxt, "CPF: %s\n", getCpfMorador(m));
-
-            const char *endereco = getEnderecoCompletoMorador(m);
-            fprintf(arquivoTxt, "Endereço do despejo: %s\n", endereco);
-            free((void*)endereco);
-
-            if (svgFileQry) {
-                const char *cep = getCepMorador(m);
-                char face = getFaceMorador(m);
-                int num = getNumMorador(m);
-
-                size_t tamQ = tamSerialQuadra();
-                void *bufQ = malloc(tamQ);
-                if (bufQ && buscaHF(hfQuadras, cep, bufQ, &tamQ) == 1) {
-                    Quadra q = desserialQuadra(bufQ, tamQ);
-                    if (q) {
-                        double x, y;
-                        getPontoEndQuadra(q, face, (double)num, &x, &y);
-                        svgMarcarDespejo(svgFileQry, x, y);
-                        freeQuadra(q);
-                    }
-                }
-                free(bufQ);
-            }
-
-            freeMorador(m);
-        }
-
-        deletarItemHF(hfMoradores, cpf);
-
-        size_t tamHab = tamSerialHabitante();
-        void *bufferHab = malloc(tamHab);
-        if (bufferHab) {
-            if (buscaHF(hfHabitantes, cpf, bufferHab, &tamHab) == 1) {
-                Habitante h = desserialHabitante(bufferHab, tamHab);
-                if (h) {
-                    setIdMoradiaHabitante(h, NULL);
-                    size_t tamAtualizado = tamSerialHabitante();
-                    void *bufferAtualizado = malloc(tamAtualizado);
-                    if (bufferAtualizado) {
-                        serialHabitante(h, bufferAtualizado, tamAtualizado);
-                        refreshHF(hfHabitantes, cpf, bufferAtualizado, tamAtualizado);
-                        free(bufferAtualizado);
-                    }
-                    freeHabitante(h);
-                }
-            }
-            free(bufferHab);
-        }
-    } else {
-        fprintf(arquivoTxt, "Morador não encontrado\n");
+    if (idx1 < 0 || idx2 < 0) {
+        fprintf(stderr, "Erro: registrador inválido\n");
+        return;
     }
 
-    free(bufferMor);
+    fprintf(arquivoTxt, "[*] p? R%d R%d %s %s\n", idx1, idx2, corCurto, corRapido);
+
+    if (!registradores[idx1].ativo || !registradores[idx2].ativo) {
+        fprintf(arquivoTxt, "Erro: registrador não inicializado\n");
+        return;
+    }
+
+    Vertice vOrigem = encontrarVerticeMaisProximo(grafo, registradores[idx1].x, registradores[idx1].y);
+    Vertice vDestino = encontrarVerticeMaisProximo(grafo, registradores[idx2].x, registradores[idx2].y);
+
+    if (!vOrigem || !vDestino) {
+        fprintf(arquivoTxt, "Erro: não foi possível encontrar vértices próximos\n");
+        return;
+    }
+
+    const char* idOrigem = getVerticeId(vOrigem);
+    const char* idDestino = getVerticeId(vDestino);
+
+    Caminho caminhoCurto = menorCaminho(grafo, idOrigem, idDestino);
+    Caminho caminhoRapido = caminhoMaisRapido(grafo, idOrigem, idDestino);
+
+    fprintf(arquivoTxt, "Origem: (%.2f, %.2f) -> vértice %s\n",
+            registradores[idx1].x, registradores[idx1].y, idOrigem);
+    fprintf(arquivoTxt, "Destino: (%.2f, %.2f) -> vértice %s\n",
+            registradores[idx2].x, registradores[idx2].y, idDestino);
+
+    gerarDescricaoPercurso(arquivoTxt, caminhoCurto, "Caminho mais curto");
+    gerarDescricaoPercurso(arquivoTxt, caminhoRapido, "Caminho mais rápido");
+
+    if (!caminhoCurto && !caminhoRapido) {
+        fprintf(arquivoTxt, "Destino inacessível!\n");
+        deletaCaminho(caminhoCurto);
+        deletaCaminho(caminhoRapido);
+        return;
+    }
+
+    desenharPontoReferencia(svgFile, registradores[idx1].x, registradores[idx1].y, "I");
+    desenharPontoReferencia(svgFile, registradores[idx2].x, registradores[idx2].y, "F");
+
+    deletaCaminho(caminhoCurto);
+    deletaCaminho(caminhoRapido);
 }
 
-static void processarComandoGeo(const char *linha) {
+
+static void processarComandoGeo(const char* linha) {
     if (linha[0] == '\n' || linha[0] == '#' || linha[0] == '\0') return;
 
     char comando[10];
@@ -664,10 +405,9 @@ static void processarComandoGeo(const char *linha) {
         char cep[32];
         double x, y, w, h;
         if (sscanf(linha, "%*s %s %lf %lf %lf %lf", cep, &x, &y, &w, &h) == 5) {
-            cmdQ(cep, x, y, w, h, corPreenchimento, corBorda, espessuraBorda);
+            cmdQ(cep, x, y, w, h);
         }
-    }
-    else if (strcmp(comando, "cq") == 0) {
+    } else if (strcmp(comando, "cq") == 0) {
         char swStr[16], cfill[32], cstrk[32];
         if (sscanf(linha, "%*s %s %s %s", swStr, cfill, cstrk) == 3) {
             double sw = atof(swStr);
@@ -676,98 +416,44 @@ static void processarComandoGeo(const char *linha) {
     }
 }
 
-static void processarComandoPm(const char *linha) {
+
+static void processarComandoQry(const char* linha) {
     if (linha[0] == '\n' || linha[0] == '#' || linha[0] == '\0') return;
 
     char comando[10];
     sscanf(linha, "%s", comando);
 
-    if (strcmp(comando, "p") == 0) {
-        char cpf[32], nome[100], sobrenome[100], sexo[4], nasc[11];
-        if (sscanf(linha, "%*s %s %s %s %s %s", cpf, nome, sobrenome, sexo, nasc) == 5) {
-            cmdP(cpf, nome, sobrenome, sexo[0], nasc);
-        }
-    }
-    else if (strcmp(comando, "m") == 0) {
-        char cpf[32], cep[32], face[4];
+    if (strcmp(comando, "@o?") == 0) {
+        char reg[4], cep[32], face[4];
         int num;
-        char resto[128];
-        int campos = sscanf(linha, "%*s %s %s %s %d %[^\n]", cpf, cep, face, &num, resto);
-        if (campos >= 4) {
-            char *compl = NULL;
-            if (campos == 5) {
-                char *p = resto;
-                while (*p == ' ') p++;
-                if (strlen(p) > 0) compl = p;
-            }
-            cmdM(cpf, cep, face[0], num, compl);
+        if (sscanf(linha, "%*s %s %s %s %d", reg, cep, face, &num) == 4) {
+            cmdAtO(reg[0], cep, face[0], num);
+        }
+    } else if (strcmp(comando, "mvm") == 0) {
+        double x, y, w, h, v;
+        if (sscanf(linha, "%*s %lf %lf %lf %lf %lf", &x, &y, &w, &h, &v) == 5) {
+            cmdMvm(x, y, w, h, v);
+         }
+    } else if (strcmp(comando, "regs") == 0) {
+        double vl;
+        if (sscanf(linha, "%*s %lf", &vl) == 1) {
+            cmdRegs(vl);
+        }
+    } else if (strcmp(comando, "exp") == 0) {
+        double vl;
+        if (sscanf(linha, "%*s %lf", &vl) == 1) {
+            cmdExp(vl);
+        }
+    } else if (strcmp(comando, "p?") == 0) {
+        char reg1[4], reg2[4], corCurto[32], corRapido[32];
+        if (sscanf(linha, "%*s %s %s %s %s", reg1, reg2, corCurto, corRapido) == 4) {
+            cmdP(reg1[0], reg2[0], corCurto, corRapido);
         }
     }
 }
 
-static void processarComandoQry(const char *linha) {
-    if (linha[0] == '\n' || linha[0] == '#' || linha[0] == '\0') return;
 
-    char comando[10];
-    sscanf(linha, "%s", comando);
-
-    if (strcmp(comando, "rq") == 0) {
-        char cep[32];
-        if (sscanf(linha, "%*s %s", cep) == 1) {
-            cmdRq(cep);
-        }
-    }
-    else if (strcmp(comando, "pq") == 0) {
-        char cep[32];
-        if (sscanf(linha, "%*s %s", cep) == 1) {
-            cmdPq(cep);
-        }
-    }
-    else if (strcmp(comando, "censo") == 0) {
-        cmdCenso();
-    }
-    else if (strcmp(comando, "h?") == 0 || strcmp(comando, "h\?") == 0) {
-        char cpf[32];
-        if (sscanf(linha, "%*s %s", cpf) == 1) {
-            cmdH(cpf);
-        }
-    }
-    else if (strcmp(comando, "nasc") == 0) {
-        char cpf[32], nome[100], sobrenome[100], sexo[4], nasc[11];
-        if (sscanf(linha, "%*s %s %s %s %s %s", cpf, nome, sobrenome, sexo, nasc) == 5) {
-            cmdNasc(cpf, nome, sobrenome, sexo[0], nasc);
-        }
-    }
-    else if (strcmp(comando, "rip") == 0) {
-        char cpf[32];
-        if (sscanf(linha, "%*s %s", cpf) == 1) {
-            cmdRip(cpf);
-        }
-    }
-    else if (strcmp(comando, "mud") == 0) {
-      char cpf[32], cep[32], faceLetra;
-      int num;
-      char resto[128];
-      int campos = sscanf(linha, "%*s %s %s %c %d %[^\n]", cpf, cep, &faceLetra, &num, resto);
-      if (campos >= 4) {
-        char *compl = NULL;
-        if (campos == 5) {
-            char *p = resto;
-            while (*p == ' ') p++;
-            if (strlen(p) > 0) compl = p;
-        }
-        cmdMud(cpf, cep, faceLetra, num, compl);
-       }
-    }
-    else if (strcmp(comando, "dspj") == 0) {
-        char cpf[32];
-        if (sscanf(linha, "%*s %s", cpf) == 1) {
-            cmdDspj(cpf);
-        }
-    }
-}
-
-void inicializarSistema(const char *nomeBase, const char *outputDir) {
+void inicializarSistema(const char* nomeBase, const char* outputDir) {
     strncpy(nomeBaseGlobal, nomeBase, FILE_NAME_LEN - 1);
     nomeBaseGlobal[FILE_NAME_LEN - 1] = '\0';
 
@@ -779,14 +465,11 @@ void inicializarSistema(const char *nomeBase, const char *outputDir) {
     snprintf(nomeHF, sizeof(nomeHF), "%s-quadras", nomeBase);
     hfQuadras = criarHF(nomeHF, 4, 2);
 
-    snprintf(nomeHF, sizeof(nomeHF), "%s-habitantes", nomeBase);
-    hfHabitantes = criarHF(nomeHF, 4, 2);
-
-    snprintf(nomeHF, sizeof(nomeHF), "%s-moradores", nomeBase);
-    hfMoradores = criarHF(nomeHF, 4, 2);
-
+    grafo = criaGrafo();
+    inicializarRegistradores();
     printf("[SISTEMA] Sistema inicializado\n");
 }
+
 
 void finalizarSistema(void) {
     if (hfQuadras) {
@@ -795,16 +478,9 @@ void finalizarSistema(void) {
         hfQuadras = NULL;
     }
 
-    if (hfHabitantes) {
-        gerarDumpHF(hfHabitantes);
-        freeHF(hfHabitantes);
-        hfHabitantes = NULL;
-    }
-
-    if (hfMoradores) {
-        gerarDumpHF(hfMoradores);
-        freeHF(hfMoradores);
-        hfMoradores = NULL;
+    if (grafo) {
+        deletaGrafo(grafo);
+        grafo = NULL;
     }
 
     if (arquivoTxt) {
@@ -812,20 +488,21 @@ void finalizarSistema(void) {
         arquivoTxt = NULL;
     }
 
-    if (svgFileQry) {
-        fclose(svgFileQry);
-        svgFileQry = NULL;
+    if (svgFile) {
+        fecharSVG(svgFile);
+        svgFile = NULL;
     }
 
     printf("[SISTEMA] Sistema finalizado\n");
 }
 
-void processarArquivoGeo(const char *caminho, const char *inputDir,
-                         const char *nomeBase, const char *outputDir) {
+
+void processarArquivoGeo(const char* caminho, const char* inputDir,
+                         const char* nomeBase, const char* outputDir) {
     char caminhoCompleto[PATH_LEN];
     construirCaminhoCompleto(inputDir, caminho, caminhoCompleto);
 
-    FILE *f;
+    FILE* f;
     abrirArquivo(&f, caminhoCompleto);
 
     char linha[MAX_LINHA];
@@ -837,28 +514,35 @@ void processarArquivoGeo(const char *caminho, const char *inputDir,
 
     char caminhoSvg[PATH_LEN];
     gerarNomeGeoSvg(nomeBase, outputDir, caminhoSvg);
-    svgGeo(caminhoSvg, hfQuadras);
+
+    svgFile = criarSVG(caminhoSvg, 0, 0, 9000, 4500);
+    if (svgFile) {
+        FILE* file = getArquivoSVG(svgFile);
+        desenharQuadrasSvg(hfQuadras, file);
+        fecharSVG(svgFile);
+        svgFile = NULL;
+    }
+
     printf("[GEO] Arquivo SVG base gerado: %s\n", caminhoSvg);
 }
 
-void processarArquivoPm(const char *caminho, const char *inputDir, const char *nomeBase) {
+
+void processarArquivoVia(const char* caminho, const char* inputDir) {
     char caminhoCompleto[PATH_LEN];
     construirCaminhoCompleto(inputDir, caminho, caminhoCompleto);
 
-    FILE *f;
+    FILE* f;
     abrirArquivo(&f, caminhoCompleto);
-
-    char linha[MAX_LINHA];
-    while (fgets(linha, sizeof(linha), f)) {
-        processarComandoPm(linha);
-    }
-
+    processarArquivoVia(f);
     fclose(f);
 
-    printf("[PM] Arquivo processado\n");
+    printf("[VIA] Grafo construído com %d vértices e %d arestas\n",
+           quantVertices(grafo), quantArestas(grafo));
 }
 
-void processarArquivoQry(const char *caminho, const char *inputDir, const char *nomeBase, const char *outputDir) {
+
+void processarArquivoQry(const char* caminho, const char* inputDir,
+                         const char* nomeBase, const char* outputDir) {
     char caminhoCompleto[PATH_LEN];
     construirCaminhoCompleto(inputDir, caminho, caminhoCompleto);
 
@@ -877,14 +561,13 @@ void processarArquivoQry(const char *caminho, const char *inputDir, const char *
     char caminhoSvg[PATH_LEN];
     gerarNomeQrySvg(nomeBase, nomeBaseQry, outputDir, caminhoSvg);
 
-    svgFileQry = fopen(caminhoSvg, "w");
-    if (svgFileQry) {
-        fprintf(svgFileQry, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-        fprintf(svgFileQry, "<svg xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\" "
-                            "viewBox=\"0 0 9000 4500\">\n");
+    svgFile = criarSVG(caminhoSvg, 0, 0, 9000, 4500);
+    if (svgFile) {
+        FILE* file = getArquivoSVG(svgFile);
+        desenharQuadrasSvg(hfQuadras, file);
     }
 
-    FILE *f;
+    FILE* f;
     abrirArquivo(&f, caminhoCompleto);
 
     char linha[MAX_LINHA];
@@ -894,11 +577,14 @@ void processarArquivoQry(const char *caminho, const char *inputDir, const char *
 
     fclose(f);
 
-    if (svgFileQry) {
-        desenharQuadrasSvg(hfQuadras, svgFileQry);
-        fprintf(svgFileQry, "</svg>");
-        fclose(svgFileQry);
-        svgFileQry = NULL;
+    if (svgFile) {
+        fecharSVG(svgFile);
+        svgFile = NULL;
+    }
+
+    if (arquivoTxt) {
+        fclose(arquivoTxt);
+        arquivoTxt = NULL;
     }
 
     printf("[QRY] Arquivo SVG final gerado: %s\n", caminhoSvg);
