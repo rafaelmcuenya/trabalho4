@@ -284,3 +284,52 @@ Vertice getVerticeComponente(Componente c, int indice) {
     }
     return (Vertice) getInfo(no);
 }
+
+double getBBoxX(Componente c) {
+    assert(c != NULL);
+    ComponenteStruct* comp = (ComponenteStruct*) c;
+    return comp->bboxX;
+}
+
+double getBBoxY(Componente c) {
+    assert(c != NULL);
+    ComponenteStruct* comp = (ComponenteStruct*) c;
+    return comp->bboxY;
+}
+
+double getBBoxW(Componente c) {
+    assert(c != NULL);
+    ComponenteStruct* comp = (ComponenteStruct*) c;
+    return comp->bboxW;
+}
+
+double getBBoxH(Componente c) {
+    assert(c != NULL);
+    ComponenteStruct* comp = (ComponenteStruct*) c;
+    return comp->bboxH;
+}
+
+const char* getCorComponente(Componente c) {
+    assert(c != NULL);
+    ComponenteStruct* comp = (ComponenteStruct*) c;
+    return comp->cor;
+}
+
+void deletaListaComponentes(ListaComponentes lc) {
+    if (lc == NULL) return;
+    
+    Lista lista = (Lista) lc;
+    No no = primeiroNo(lista);
+    
+    while (no != NULL) {
+        ComponenteStruct* comp = (ComponenteStruct*) getInfo(no);
+        if (comp != NULL) {
+            deletaLista(comp->vertices);
+            free(comp->cor);
+            free(comp);
+            setInfo(no, NULL);
+        }
+        no = proximoNo(no);
+    }
+    deletaLista(lista);
+}
