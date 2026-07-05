@@ -213,13 +213,13 @@ ListaComponentes encontrarComponentes(Grafo g, double vl) {
             
             ctx.componenteAtual = comp;
             dfs(vertice, &ctx);
+            finalizarBoundingBox(comp);
 
             printf("[DEBUG] Componente %d: %d vértices, bbox=(%.2f,%.2f) %.2fx%.2f\n",
             numComponentes, 
             tamanhoLista(comp->vertices),
             comp->bboxX, comp->bboxY, comp->bboxW, comp->bboxH);
             
-            finalizarBoundingBox(comp);
             atribuirCor(comp, numComponentes);
             inserirFim(componentes, comp);
             numComponentes++;
