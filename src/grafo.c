@@ -157,7 +157,7 @@ Vertice buscarVertice(Grafo g, const char* id){
 }
 
 
-Vertice getVerticeByIndice(Grafo g, int indice){
+Vertice getVerticeIndice(Grafo g, int indice){
     assert(g != NULL);
     assert(indice >= 0);
     
