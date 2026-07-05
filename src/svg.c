@@ -185,25 +185,20 @@ void desenharCaminhoAnimado(SVGFile svg, const char* d, const char* stroke,
     
     FILE* f = getArquivoSVG(svg);
     
-    fprintf(f, "<g>\n");
-    fprintf(f, "<path id=\"caminhoAnimado\" d=\"%s\" fill=\"none\" stroke=\"none\"/>\n", d);    
-    fprintf(f, "<circle r=\"5\" fill=\"%s\">\n", stroke);
-    fprintf(f, "  <animateMotion dur=\"%.1fs\" repeatCount=\"%s\">\n", duracao, repeatCount ? repeatCount : "1");
-    fprintf(f, "    <mpath href=\"#caminhoAnimado\"/>\n");
-    fprintf(f, "  </animateMotion>\n");
-    fprintf(f, "</circle>\n");
+    fprintf(f, "<path id=\"caminho_%p\" d=\"%s\" fill=\"none\" stroke=\"none\"/>\n", 
+            (void*)f, d);
+    
     fprintf(f, "<path d=\"%s\" stroke=\"%s\" stroke-width=\"%.1f\" ", d, stroke, strokeWidth);
-  
     if (fill != NULL) fprintf(f, "fill=\"%s\" ", fill);
     if (opacity >= 0 && opacity <= 1) fprintf(f, "fill-opacity=\"%.2f\" ", opacity);
-  
-    fprintf(f, "stroke-dasharray=\"1000\" stroke-dashoffset=\"1000\">\n");
-    fprintf(f, "  <animate attributeName=\"stroke-dashoffset\" from=\"1000\" to=\"0\" ");
-    fprintf(f, "dur=\"%.1fs\" ", duracao);
-    fprintf(f, "repeatCount=\"%s\" ", repeatCount ? repeatCount : "1");
     fprintf(f, "/>\n");
-    fprintf(f, "</path>\n");
-    fprintf(f, "</g>\n");
+    
+    fprintf(f, "<circle r=\"6\" fill=\"%s\">\n", stroke);
+    fprintf(f, "  <animateMotion dur=\"%.1fs\" repeatCount=\"%s\">\n", 
+            duracao, repeatCount ? repeatCount : "indefinite");
+    fprintf(f, "    <mpath href=\"#caminho_%p\"/>\n", (void*)f);
+    fprintf(f, "  </animateMotion>\n");
+    fprintf(f, "</circle>\n");
 }
 
 
