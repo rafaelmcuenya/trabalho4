@@ -38,6 +38,11 @@ static char nomeBaseGlobal[FILE_NAME_LEN];
 static char outputDirGlobal[PATH_LEN];
 static FILE* arquivoTxt = NULL;
 static SVGFile svgFile = NULL;
+static double viewBoxMinX = DBL_MAX;
+static double viewBoxMinY = DBL_MAX;
+static double viewBoxMaxX = -DBL_MAX;
+static double viewBoxMaxY = -DBL_MAX;
+static bool viewBoxInicializado = false;
 
 
 static void construirCaminhoCompleto(const char* baseDir, const char* arquivo, char* caminhoCompleto) {
@@ -140,6 +145,23 @@ static void gerarDescricaoPercurso(FILE* txt, Caminho caminho, const char* tipo)
 }
 
 
+static void atualizarViewBox(double x, double y, double w, double h) {
+    if (!viewBoxInicializado) {
+        viewBoxMinX = x;
+        viewBoxMinY = y;
+        viewBoxMaxX = x + w;
+        viewBoxMaxY = y + h;
+        viewBoxInicializado = true;
+        return;
+    }
+    
+    if (x < viewBoxMinX) viewBoxMinX = x;
+    if (y < viewBoxMinY) viewBoxMinY = y;
+    if (x + w > viewBoxMaxX) viewBoxMaxX = x + w;
+    if (y + h > viewBoxMaxY) viewBoxMaxY = y + h;
+}
+
+
 static void cmdQ(const char* cep, double x, double y, double w, double h) {
     Quadra q = criaQuadra(cep, x, y, w, h, corPreenchimento, corBorda, espessuraBorda);
     if (!q) {
@@ -164,6 +186,7 @@ static void cmdQ(const char* cep, double x, double y, double w, double h) {
         fprintf(stderr, "Erro: falha ao inserir quadra %s no hashfile\n", cep);
     }
 
+    atualizarViewBox(x, y, w, h);
     free(buffer);
     freeQuadra(q);
 }
@@ -532,7 +555,6 @@ void inicializarSistema(const char* nomeBase, const char* outputDir) {
 
     strncpy(outputDirGlobal, outputDir, PATH_LEN - 1);
     outputDirGlobal[PATH_LEN - 1] = '\0';
-
     char nomeHF[PATH_LEN];
 
     snprintf(nomeHF, sizeof(nomeHF), "%s-quadras", nomeBase);
@@ -540,6 +562,12 @@ void inicializarSistema(const char* nomeBase, const char* outputDir) {
 
     grafo = criaGrafo();
     inicializarRegistradores();
+
+    viewBoxMinX = DBL_MAX;
+    viewBoxMinY = DBL_MAX;
+    viewBoxMaxX = -DBL_MAX;
+    viewBoxMaxY = -DBL_MAX;
+    viewBoxInicializado = false;
     printf("[SISTEMA] Sistema inicializado\n");
 }
 
@@ -584,17 +612,41 @@ void processarArquivoGeo(const char* caminho, const char* inputDir,
     }
 
     fclose(f);
+    double viewBoxX, viewBoxY, viewBoxW, viewBoxH;
+    
+    if (viewBoxInicializado) {
+        double marginX = (viewBoxMaxX - viewBoxMinX) * 0.1;
+        double marginY = (viewBoxMaxY - viewBoxMinY) * 0.1;
+        
+        if (marginX < 50.0) marginX = 50.0;
+        if (marginY < 50.0) marginY = 50.0;
+        
+        viewBoxX = viewBoxMinX - marginX;
+        viewBoxY = viewBoxMinY - marginY;
+        viewBoxW = (viewBoxMaxX - viewBoxMinX) + 2 * marginX;
+        viewBoxH = (viewBoxMaxY - viewBoxMinY) + 2 * marginY;
+    } else {
+        viewBoxX = 0.0;
+        viewBoxY = 0.0;
+        viewBoxW = 9000.0;
+        viewBoxH = 4500.0;
+    }
 
     char caminhoSvg[PATH_LEN];
     gerarNomeGeoSvg(nomeBase, outputDir, caminhoSvg);
 
-    svgFile = criarSVG(caminhoSvg, 0, 0, 9000, 4500);
+    svgFile = criarSVG(caminhoSvg, viewBoxX, viewBoxY, viewBoxW, viewBoxH);
     if (svgFile) {
         FILE* file = getArquivoSVG(svgFile);
         desenharQuadrasSvg(hfQuadras, file);
         fecharSVG(svgFile);
         svgFile = NULL;
     }
+
+    printf("[GEO] Arquivo SVG base gerado: %s\n", caminhoSvg);
+    printf("[GEO] ViewBox: (%.2f, %.2f) %.2f x %.2f\n", 
+           viewBoxX, viewBoxY, viewBoxW, viewBoxH);
+}
 
     printf("[GEO] Arquivo SVG base gerado: %s\n", caminhoSvg);
 }
@@ -642,8 +694,27 @@ void processarArquivoQry(const char* caminho, const char* inputDir,
 
     char caminhoSvg[PATH_LEN];
     gerarNomeQrySvg(nomeBase, nomeBaseQry, outputDir, caminhoSvg);
+    double viewBoxX, viewBoxY, viewBoxW, viewBoxH;
+    
+    if (viewBoxInicializado) {
+        double marginX = (viewBoxMaxX - viewBoxMinX) * 0.1;
+        double marginY = (viewBoxMaxY - viewBoxMinY) * 0.1;
+        
+        if (marginX < 50.0) marginX = 50.0;
+        if (marginY < 50.0) marginY = 50.0;
+        
+        viewBoxX = viewBoxMinX - marginX;
+        viewBoxY = viewBoxMinY - marginY;
+        viewBoxW = (viewBoxMaxX - viewBoxMinX) + 2 * marginX;
+        viewBoxH = (viewBoxMaxY - viewBoxMinY) + 2 * marginY;
+    } else {
+        viewBoxX = 0.0;
+        viewBoxY = 0.0;
+        viewBoxW = 9000.0;
+        viewBoxH = 4500.0;
+    }
 
-    svgFile = criarSVG(caminhoSvg, 0, 0, 9000, 4500);
+    svgFile = criarSVG(caminhoSvg, viewBoxX, viewBoxY, viewBoxW, viewBoxH);
     if (svgFile) {
         FILE* file = getArquivoSVG(svgFile);
         desenharQuadrasSvg(hfQuadras, file);
