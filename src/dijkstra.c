@@ -1,5 +1,6 @@
 #include "dijkstra.h"
 #include "lista.h"
+#include "heap.h"
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -60,45 +61,56 @@ static InfoDijkstra* executarDijkstra(Grafo g, Vertice origem, bool porTempo) {
     int idxOrigem = getIndiceVertice(origem);
     info[idxOrigem].dist = 0.0;
     
-    for (int i = 0; i < numVertices; i++) {
-        Vertice u = encontrarMenorDistancia(info, g);
-        if (u == NULL) break; 
+    Heap heap = criarHeap(numVertices);
+    if (heap == NULL) {
+        free(info);
+        return NULL;
+    }
+    
+    inserirHeap(heap, origem, 0.0);
+    
+    while (!heapVazia(heap)) {
+        Vertice u = extrairMin(heap);
+        if (u == NULL) break;
         
         int idxU = getIndiceVertice(u);
+        if (info[idxU].visitado) continue;
+        
         info[idxU].visitado = true;
         
-Aresta a = primeiraArestaAdj(u);
-while (a != NULL) {
-    if (arestaAtiva(a)) {
-        Vertice destino = getDestino(a);
-        int idxV = getIndiceVertice(destino);
-        
-        if (!info[idxV].visitado) {
-            double peso = 0.0;
-            if (porTempo) {
-                double vel = getVelocidadeMedia(a);
-                if (vel > 0) {
-                    peso = getComprimento(a) / vel;
-                } else {
-                    // Velocidade 0 ou negativa: ignora a aresta
-                    a = proximaArestaAdj(u, a);
-                    continue;
+        Aresta a = primeiraArestaAdj(u);
+        while (a != NULL) {
+            if (arestaAtiva(a)) {
+                Vertice destino = getDestino(a);
+                int idxV = getIndiceVertice(destino);
+                
+                if (!info[idxV].visitado) {
+                    double peso;
+                    if (porTempo) {
+                        double vel = getVelocidadeMedia(a);
+                        if (vel <= 0) {
+                            a = proximaArestaAdj(u, a);
+                            continue;
+                        }
+                        peso = getComprimento(a) / vel;
+                    } else {
+                        peso = getComprimento(a);
+                    }
+                    
+                    double novaDist = info[idxU].dist + peso;
+                    if (novaDist < info[idxV].dist) {
+                        info[idxV].dist = novaDist;
+                        info[idxV].predecessor = u;
+                        info[idxV].arestaPredecessora = a;
+                        atualizarDistancia(heap, destino, novaDist);
+                    }
                 }
-            } else {
-                peso = getComprimento(a);
             }
-            
-            double novaDist = info[idxU].dist + peso;
-            if (novaDist < info[idxV].dist) {
-                info[idxV].dist = novaDist;
-                info[idxV].predecessor = u;
-                info[idxV].arestaPredecessora = a;
-              }
-            }
+            a = proximaArestaAdj(u, a);
         }
-        a = proximaArestaAdj(u, a);
-     }
-    }  
+    }
+    
+    deletaHeap(heap);
     return info;
 }
 
