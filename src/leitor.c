@@ -648,9 +648,6 @@ void processarArquivoGeo(const char* caminho, const char* inputDir,
            viewBoxX, viewBoxY, viewBoxW, viewBoxH);
 }
 
-    printf("[GEO] Arquivo SVG base gerado: %s\n", caminhoSvg);
-}
-
 
 void processarArquivoVia(const char* caminho, const char* inputDir) {
     char caminhoCompleto[PATH_LEN];
