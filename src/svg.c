@@ -220,7 +220,7 @@ void desenharPontoReferencia(SVGFile svg, double x, double y, const char* rotulo
     fprintf(f, "<circle cx=\"%.2f\" cy=\"%.2f\" r=\"4\" ", x, y);
     fprintf(f, "fill=\"red\" stroke=\"black\" stroke-width=\"1\"/>\n");
     
-    fprintf(f, "<text x=\"%.2f\" y=\"%.2f\" font-size=\"8\" ", x, y + 15);
+    fprintf(f, "<text x=\"%.2f\" y=\"%.2f\" font-size=\"8\" ", x, 10.0);
     fprintf(f, "text-anchor=\"middle\" fill=\"red\" font-weight=\"bold\">%s</text>\n", rotulo);
 }
 
