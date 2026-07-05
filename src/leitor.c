@@ -224,7 +224,7 @@ static void processarArquivoViaInterno(FILE* f) {
 static void cmdAtO(const char* reg, const char* cep, char face, int num) {
     int idx = obterIndiceRegistrador(reg);
     if (idx < 0) {
-        fprintf(stderr, "Erro: registrador inválido %c\n", reg);
+        fprintf(stderr, "Erro: registrador inválido %s\n", reg);
         return;
     }
 
@@ -355,7 +355,7 @@ static void cmdExp(double vl) {
 }
 
 
-static void cmdP(char reg1, char reg2, const char* corCurto, const char* corRapido) {
+static void cmdP(const char* reg1, const char* reg2, const char* corCurto, const char* corRapido) {
     int idx1 = obterIndiceRegistrador(reg1);
     int idx2 = obterIndiceRegistrador(reg2);
 
