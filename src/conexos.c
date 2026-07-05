@@ -7,43 +7,27 @@
 #include <math.h>
 
 static const char* CORES[] = {
-    "#FF0000",  // Vermelho
-    "#00FF00",  // Verde
-    "#0000FF",  // Azul
-    "#FFFF00",  // Amarelo
-    "#FF00FF",  // Magenta
-    "#00FFFF",  // Ciano
-    "#FFA500",  // Laranja
-    "#800080",  // Roxo
-    "#008080",  // Teal
-    "#FF69B4",  // Rosa
-    "#A52A2A",  // Marrom
-    "#2E8B57",  // Verde marinho
-    "#FFD700",  // Dourado
-    "#DC143C",  // Carmim
-    "#00CED1",  // Turquesa
-    "#9400D3",  // Violeta
-    "#FF4500",  // Vermelho alaranjado
-    "#32CD32",  // Lima
-    "#1E90FF",  // Azul dodger
-    "#FF1493"   // Rosa profundo
+    "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF",
+    "#00FFFF", "#FFA500", "#800080", "#008080", "#FF69B4",
+    "#A52A2A", "#2E8B57", "#FFD700", "#DC143C", "#00CED1",
+    "#9400D3", "#FF4500", "#32CD32", "#1E90FF", "#FF1493"
 };
 #define NUM_CORES (sizeof(CORES) / sizeof(CORES[0]))
 
 typedef struct ComponenteStruct {
-    Lista vertices;          
-    double minX, minY;    
-    double maxX, maxY;      
-    double bboxX, bboxY;     
-    double bboxW, bboxH;     
-    char* cor;              
+    Lista vertices;
+    double minX, minY;
+    double maxX, maxY;
+    double bboxX, bboxY;
+    double bboxW, bboxH;
+    char* cor;
 } ComponenteStruct;
 
 typedef struct {
     bool* visitado;
     Grafo g;
     ComponenteStruct* componenteAtual;
-} DFSContext;
+    Lista* adjacenciaNaoDirecionada;  
 
 static ComponenteStruct* criarComponente(void) {
     ComponenteStruct* c = malloc(sizeof(ComponenteStruct));
@@ -108,7 +92,6 @@ static void atribuirCor(ComponenteStruct* c, int indice) {
     
     int corIndex = indice % NUM_CORES;
     c->cor = malloc(strlen(CORES[corIndex]) + 1);
-  
     if (c->cor != NULL) {
         strcpy(c->cor, CORES[corIndex]);
     }
@@ -117,21 +100,67 @@ static void atribuirCor(ComponenteStruct* c, int indice) {
 static void dfs(Vertice v, DFSContext* ctx) {
     int idx = getIndiceVertice(v);
     if (ctx->visitado[idx]) return;
+    
     ctx->visitado[idx] = true;
     adicionarVerticeComponente(ctx->componenteAtual, v);
     
-    Aresta a = primeiraArestaAdj(v);
-    while (a != NULL) {
-        if (arestaAtiva(a)) {
-            Vertice destino = getDestino(a);
-            int idxDestino = getIndiceVertice(destino);
-            
-            if (!ctx->visitado[idxDestino]) {
-                dfs(destino, ctx);
-            }
+    Lista adj = ctx->adjacenciaNaoDirecionada[idx];
+    No no = primeiroNo(adj);
+    while (no != NULL) {
+        Vertice vizinho = (Vertice) getInfo(no);
+        int idxVizinho = getIndiceVertice(vizinho);
+        if (!ctx->visitado[idxVizinho]) {
+            dfs(vizinho, ctx);
         }
-        a = proximaArestaAdj(v, a);
+        no = proximoNo(no);
     }
+}
+
+static Lista* construirAdjacenciaNaoDirecionada(Grafo g, double vl) {
+    int numVertices = quantVertices(g);
+    if (numVertices == 0) return NULL;
+    
+    Lista* adj = calloc(numVertices, sizeof(Lista));
+    if (adj == NULL) return NULL;
+    
+    for (int i = 0; i < numVertices; i++) {
+        adj[i] = criaLista();
+        if (adj[i] == NULL) {
+            for (int j = 0; j < i; j++) {
+                deletaLista(adj[j]);
+            }
+            free(adj);
+            return NULL;
+        }
+    }
+    
+    Vertice v = primeiroVertice(g);
+    while (v != NULL) {
+        Aresta a = primeiraArestaAdj(v);
+        while (a != NULL) {
+            if (arestaAtiva(a) && getVelocidadeMedia(a) >= vl) {
+                Vertice origem = getOrigem(a);
+                Vertice destino = getDestino(a);
+                int idxOrigem = getIndiceVertice(origem);
+                int idxDestino = getIndiceVertice(destino);
+                
+                inserirFim(adj[idxOrigem], destino);
+                inserirFim(adj[idxDestino], origem);
+            }
+            a = proximaArestaAdj(v, a);
+        }
+        v = proximoVertice(g, v);
+    }
+    
+    return adj;
+}
+
+static void liberarAdjacenciaNaoDirecionada(Lista* adj, int numVertices) {
+    if (adj == NULL) return;
+    for (int i = 0; i < numVertices; i++) {
+        deletaLista(adj[i]);
+    }
+    free(adj);
 }
 
 ListaComponentes encontrarComponentes(Grafo g, double vl) {
@@ -141,80 +170,39 @@ ListaComponentes encontrarComponentes(Grafo g, double vl) {
     int numVertices = quantVertices(g);
     if (numVertices == 0) return NULL;
     
-    Lista arestasDesativadas = criaLista();
-    if (arestasDesativadas == NULL) return NULL;
-    
-    Aresta a = primeiraArestaAdj(primeiroVertice(g));
-    Vertice v = primeiroVertice(g);
-  
-    while (v != NULL) {
-        Aresta aTemp = primeiraArestaAdj(v);
-      
-        while (aTemp != NULL) {
-            if (arestaAtiva(aTemp) && getVelocidadeMedia(aTemp) < vl) {
-                offAresta(aTemp);
-                inserirFim(arestasDesativadas, aTemp);
-            }
-            aTemp = proximaArestaAdj(v, aTemp);
-        }
-        v = proximoVertice(g, v);
-    }
+    Lista* adj = construirAdjacenciaNaoDirecionada(g, vl);
+    if (adj == NULL) return NULL;
     
     bool* visitado = calloc(numVertices, sizeof(bool));
-  
     if (visitado == NULL) {
-        No no = primeiroNo(arestasDesativadas);
-      
-        while (no != NULL) {
-            Aresta aRest = (Aresta) getInfo(no);
-          
-            if (aRest != NULL) onAresta(aRest);
-            no = proximoNo(no);
-        }
-        deletaLista(arestasDesativadas);
+        liberarAdjacenciaNaoDirecionada(adj, numVertices);
         return NULL;
     }
     
     Lista componentes = criaLista();
     if (componentes == NULL) {
         free(visitado);
-        No no = primeiroNo(arestasDesativadas);
-      
-        while (no != NULL) {
-            Aresta aRest = (Aresta) getInfo(no);
-          
-            if (aRest != NULL) onAresta(aRest);
-            no = proximoNo(no);
-        }
-        deletaLista(arestasDesativadas);
+        liberarAdjacenciaNaoDirecionada(adj, numVertices);
         return NULL;
     }
     
     DFSContext ctx;
     ctx.g = g;
     ctx.visitado = visitado;
+    ctx.adjacenciaNaoDirecionada = adj;
     
     int numComponentes = 0;
     Vertice vertice = primeiroVertice(g);
-  
+    
     while (vertice != NULL) {
         int idx = getIndiceVertice(vertice);
         
         if (!visitado[idx]) {
             ComponenteStruct* comp = criarComponente();
-          
             if (comp == NULL) {
                 free(visitado);
                 deletaLista(componentes);
-                No no = primeiroNo(arestasDesativadas);
-              
-                while (no != NULL) {
-                    Aresta aRest = (Aresta) getInfo(no);
-                  
-                    if (aRest != NULL) onAresta(aRest);
-                    no = proximoNo(no);
-                }
-                deletaLista(arestasDesativadas);
+                liberarAdjacenciaNaoDirecionada(adj, numVertices);
                 return NULL;
             }
             
@@ -222,7 +210,7 @@ ListaComponentes encontrarComponentes(Grafo g, double vl) {
             dfs(vertice, &ctx);
             
             finalizarBoundingBox(comp);
-            atribuirCor(comp, numComponentes);            
+            atribuirCor(comp, numComponentes);
             inserirFim(componentes, comp);
             numComponentes++;
         }
@@ -230,19 +218,12 @@ ListaComponentes encontrarComponentes(Grafo g, double vl) {
         vertice = proximoVertice(g, vertice);
     }
     
-    No no = primeiroNo(arestasDesativadas);
-  
-    while (no != NULL) {
-        Aresta aRest = (Aresta) getInfo(no);
-      
-        if (aRest != NULL) onAresta(aRest);
-        no = proximoNo(no);
-    }
-    deletaLista(arestasDesativadas);
-    
     free(visitado);
+    liberarAdjacenciaNaoDirecionada(adj, numVertices);
+    
     return componentes;
 }
+
 
 int quantComponentes(ListaComponentes lc) {
     if (lc == NULL) return 0;
@@ -275,9 +256,8 @@ Vertice getVerticeComponente(Componente c, int indice) {
     assert(indice >= 0);
     
     ComponenteStruct* comp = (ComponenteStruct*) c;
-    if (indice >= tamanhoLista(comp->vertices)) return NULL;  
+    if (indice >= tamanhoLista(comp->vertices)) return NULL;
     No no = primeiroNo(comp->vertices);
-  
     for (int i = 0; i < indice; i++) {
         no = proximoNo(no);
         if (no == NULL) return NULL;
@@ -320,7 +300,6 @@ void deletaListaComponentes(ListaComponentes lc) {
     
     Lista lista = (Lista) lc;
     No no = primeiroNo(lista);
-    
     while (no != NULL) {
         ComponenteStruct* comp = (ComponenteStruct*) getInfo(no);
         if (comp != NULL) {
