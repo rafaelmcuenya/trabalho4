@@ -221,8 +221,8 @@ static void processarArquivoViaInterno(FILE* f) {
 }
 
 
-static void cmdAtO(char reg, const char* cep, char face, int num) {
-    int idx = obterIndiceRegistrador(&reg);
+static void cmdAtO(const char* reg, const char* cep, char face, int num) {
+    int idx = obterIndiceRegistrador(reg);
     if (idx < 0) {
         fprintf(stderr, "Erro: registrador inválido %c\n", reg);
         return;
@@ -355,9 +355,9 @@ static void cmdExp(double vl) {
 }
 
 
-static void cmdP(char reg1, char reg2, const char* corCurto, const char* corRapido) {
-    int idx1 = obterIndiceRegistrador(&reg1);
-    int idx2 = obterIndiceRegistrador(&reg2);
+static void cmdP(const char* reg1, const char* reg2, const char* corCurto, const char* corRapido) {
+    int idx1 = obterIndiceRegistrador(reg1);
+    int idx2 = obterIndiceRegistrador(reg2);
 
     if (idx1 < 0 || idx2 < 0) {
         fprintf(stderr, "Erro: registrador inválido\n");
@@ -439,10 +439,10 @@ static void processarComandoQry(const char* linha) {
     if (strcmp(comando, "@o?") == 0) {
         char reg[4], cep[32], face[4];
         int num;
-        if (sscanf(linha, "%*s %s %s %s %d", reg, cep, face, &num) == 4) {
-            cmdAtO(reg[0], cep, face[0], num);
-        }
-    } else if (strcmp(comando, "mvm") == 0) {
+    if (sscanf(linha, "%*s %s %s %s %d", reg, cep, face, &num) == 4) {
+        cmdAtO(reg, cep, face[0], num);  
+     }
+   } else if (strcmp(comando, "mvm") == 0) {
         double x, y, w, h, v;
         if (sscanf(linha, "%*s %lf %lf %lf %lf %lf", &x, &y, &w, &h, &v) == 5) {
             cmdMvm(x, y, w, h, v);
@@ -458,12 +458,14 @@ static void processarComandoQry(const char* linha) {
             cmdExp(vl);
         }
     } else if (strcmp(comando, "p?") == 0) {
-        char reg1[4], reg2[4], corCurto[32], corRapido[32];
-        if (sscanf(linha, "%*s %s %s %s %s", reg1, reg2, corCurto, corRapido) == 4) {
-            cmdP(reg1[0], reg2[0], corCurto, corRapido);
-        }
-    }
+    char reg1[4], reg2[4], corCurto[32], corRapido[32];
+    if (sscanf(linha, "%*s %s %s %s %s", reg1, reg2, corCurto, corRapido) == 4) {
+        cmdP(reg1, reg2, corCurto, corRapido);
+      }
+  }
 }
+
+
 
 
 void inicializarSistema(const char* nomeBase, const char* outputDir) {
