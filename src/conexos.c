@@ -27,7 +27,10 @@ typedef struct {
     bool* visitado;
     Grafo g;
     ComponenteStruct* componenteAtual;
-    Lista* adjacenciaNaoDirecionada;  
+    Lista* adjacenciaNaoDirecionada;
+} DFSContext;    
+
+
 
 static ComponenteStruct* criarComponente(void) {
     ComponenteStruct* c = malloc(sizeof(ComponenteStruct));
