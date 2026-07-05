@@ -175,6 +175,7 @@ void desenharCaminho(SVGFile svg, const char* d, const char* stroke,
     fprintf(f, "/>\n");
 }
 
+
 void desenharCaminhoAnimado(SVGFile svg, const char* d, const char* stroke, 
                             double strokeWidth, const char* fill, double opacity,
                             double duracao, const char* repeatCount) {
@@ -185,8 +186,10 @@ void desenharCaminhoAnimado(SVGFile svg, const char* d, const char* stroke,
     
     FILE* f = getArquivoSVG(svg);
     
-    fprintf(f, "<path id=\"caminho_%p\" d=\"%s\" fill=\"none\" stroke=\"none\"/>\n", 
-            (void*)f, d);
+    char id[64];
+    snprintf(id, sizeof(id), "caminho_%p", (void*)f);
+    
+    fprintf(f, "<path id=\"%s\" d=\"%s\" fill=\"none\" stroke=\"none\"/>\n", id, d);
     
     fprintf(f, "<path d=\"%s\" stroke=\"%s\" stroke-width=\"%.1f\" ", d, stroke, strokeWidth);
     if (fill != NULL) fprintf(f, "fill=\"%s\" ", fill);
@@ -196,7 +199,7 @@ void desenharCaminhoAnimado(SVGFile svg, const char* d, const char* stroke,
     fprintf(f, "<circle r=\"6\" fill=\"%s\">\n", stroke);
     fprintf(f, "  <animateMotion dur=\"%.1fs\" repeatCount=\"%s\">\n", 
             duracao, repeatCount ? repeatCount : "indefinite");
-    fprintf(f, "    <mpath href=\"#caminho_%p\"/>\n", (void*)f);
+    fprintf(f, "    <mpath href=\"#%s\"/>\n", id);
     fprintf(f, "  </animateMotion>\n");
     fprintf(f, "</circle>\n");
 }
