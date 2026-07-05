@@ -19,7 +19,7 @@ TST_DIR = ../test
 UNITY_DIR = ../unity
 
 # Objetos do projeto
-OBJETOS = main.o leitor.o trataNomeArquivo.o hashfile.o quadra.o \
+OBJETOS = main.o leitor.o trataNomeArquivo.o hashfile.o quadra.o lista.o \
           grafo.o dijkstra.o conexos.o disjoint.o agm.o svg.o
 
 # Objetos dos testes 
