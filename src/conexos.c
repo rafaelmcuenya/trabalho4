@@ -121,6 +121,7 @@ static void dfs(Vertice v, DFSContext* ctx) {
 
 static Lista* construirAdjacenciaNaoDirecionada(Grafo g, double vl) {
     int numVertices = quantVertices(g);
+    
     if (numVertices == 0) return NULL;
     
     Lista* adj = calloc(numVertices, sizeof(Lista));
@@ -171,6 +172,7 @@ ListaComponentes encontrarComponentes(Grafo g, double vl) {
     assert(vl >= 0);
     
     int numVertices = quantVertices(g);
+    printf("[DEBUG] encontrarComponentes: %d vértices, vl=%.2f\n", numVertices, vl);
     if (numVertices == 0) return NULL;
     
     Lista* adj = construirAdjacenciaNaoDirecionada(g, vl);
@@ -211,6 +213,11 @@ ListaComponentes encontrarComponentes(Grafo g, double vl) {
             
             ctx.componenteAtual = comp;
             dfs(vertice, &ctx);
+
+            printf("[DEBUG] Componente %d: %d vértices, bbox=(%.2f,%.2f) %.2fx%.2f\n",
+            numComponentes, 
+            tamanhoLista(comp->vertices),
+            comp->bboxX, comp->bboxY, comp->bboxW, comp->bboxH);
             
             finalizarBoundingBox(comp);
             atribuirCor(comp, numComponentes);
