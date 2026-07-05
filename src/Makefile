@@ -19,7 +19,7 @@ TST_DIR = ../test
 UNITY_DIR = ../unity
 
 # Objetos do projeto
-=OBJETOS = main.o leitor.o trataNomeArquivo.o hashfile.o quadra.o lista.o \
+OBJETOS = main.o leitor.o trataNomeArquivo.o hashfile.o quadra.o lista.o \
           grafo.o dijkstra.o conexos.o disjoint.o agm.o svg.o heap.o
 
 # Objetos dos testes 
@@ -32,8 +32,6 @@ $(PROJ_NAME): $(OBJETOS)
 
 %.o: %.c
 	$(CC) -c $(CFLAGS) -I$(INC_DIR) $< -o $@
-
-
 
 # Módulo principal
 main.o: main.c $(INC_DIR)/leitor.h $(INC_DIR)/trataNomeArquivo.h
@@ -49,8 +47,6 @@ leitor.o: leitor.c $(INC_DIR)/leitor.h $(INC_DIR)/quadra.h \
 # Módulo de tratamento de nomes
 trataNomeArquivo.o: trataNomeArquivo.c $(INC_DIR)/trataNomeArquivo.h
 	$(CC) -c $(CFLAGS) -I$(INC_DIR) trataNomeArquivo.c -o $@
-
-
 
 # HashFile
 hashfile.o: hashfile.c $(INC_DIR)/hashfile.h
@@ -69,7 +65,7 @@ grafo.o: grafo.c $(INC_DIR)/grafo.h $(INC_DIR)/lista.h
 	$(CC) -c $(CFLAGS) -I$(INC_DIR) grafo.c -o $@
 
 # Dijkstra
-dijkstra.o: dijkstra.c $(INC_DIR)/dijkstra.h $(INC_DIR)/grafo.h $(INC_DIR)/lista.h
+dijkstra.o: dijkstra.c $(INC_DIR)/dijkstra.h $(INC_DIR)/grafo.h $(INC_DIR)/lista.h $(INC_DIR)/heap.h
 	$(CC) -c $(CFLAGS) -I$(INC_DIR) dijkstra.c -o $@
 
 # Conexos
@@ -92,8 +88,6 @@ heap.o: heap.c $(INC_DIR)/heap.h
 svg.o: svg.c $(INC_DIR)/svg.h $(INC_DIR)/quadra.h $(INC_DIR)/hashfile.h $(INC_DIR)/grafo.h
 	$(CC) -c $(CFLAGS) -I$(INC_DIR) svg.c -o $@
 
-
-
 # Unity
 unity.o: $(UNITY_DIR)/unity.c $(UNITY_DIR)/unity.h $(UNITY_DIR)/unity_internals.h
 	$(CC) -c $(CFLAGS) -I$(INC_DIR) -I$(UNITY_DIR) $(UNITY_DIR)/unity.c -o $@
@@ -115,8 +109,8 @@ t_grafo.o: $(TST_DIR)/t_grafo.c $(INC_DIR)/grafo.h $(INC_DIR)/lista.h $(UNITY_DI
 	$(CC) -c $(CFLAGS) -I$(INC_DIR) -I$(UNITY_DIR) $(TST_DIR)/t_grafo.c -o $@
 
 # Teste do Dijkstra
-t_dijkstra: unity.o lista.o grafo.o dijkstra.o t_dijkstra.o
-	$(CC) -o $@ $(LDFLAGS) unity.o lista.o grafo.o dijkstra.o t_dijkstra.o $(LIBS)
+t_dijkstra: unity.o lista.o grafo.o dijkstra.o heap.o t_dijkstra.o
+	$(CC) -o $@ $(LDFLAGS) unity.o lista.o grafo.o dijkstra.o heap.o t_dijkstra.o $(LIBS)
 	./t_dijkstra
 
 t_dijkstra.o: $(TST_DIR)/t_dijkstra.c $(INC_DIR)/dijkstra.h $(INC_DIR)/grafo.h $(UNITY_DIR)/unity.h
@@ -170,14 +164,20 @@ t_svg: unity.o quadra.o hashfile.o svg.o t_svg.o
 t_svg.o: $(TST_DIR)/t_svg.c $(INC_DIR)/svg.h $(INC_DIR)/quadra.h $(INC_DIR)/hashfile.h $(UNITY_DIR)/unity.h
 	$(CC) -c $(CFLAGS) -I$(INC_DIR) -I$(UNITY_DIR) $(TST_DIR)/t_svg.c -o $@
 
+# Teste da Heap
+t_heap: unity.o heap.o t_heap.o
+	$(CC) -o $@ $(LDFLAGS) unity.o heap.o t_heap.o $(LIBS)
+	./t_heap
+
+t_heap.o: $(TST_DIR)/t_heap.c $(INC_DIR)/heap.h $(UNITY_DIR)/unity.h
+	$(CC) -c $(CFLAGS) -I$(INC_DIR) -I$(UNITY_DIR) $(TST_DIR)/t_heap.c -o $@
+
 # Executa todos os testes
-tstall: t_lista t_grafo t_dijkstra t_conexos t_disjoint t_agm t_quadra t_hashfile t_svg
+tstall: t_lista t_grafo t_dijkstra t_conexos t_disjoint t_agm t_quadra t_hashfile t_svg t_heap
 	@echo "Todos os testes executados com sucesso!"
 
-
-
 clean:
-	rm -f *.o $(PROJ_NAME) t_lista t_grafo t_dijkstra t_conexos t_disjoint t_agm t_quadra t_hashfile t_svg
+	rm -f *.o $(PROJ_NAME) t_lista t_grafo t_dijkstra t_conexos t_disjoint t_agm t_quadra t_hashfile t_svg t_heap
 	@echo "Limpeza realizada"
 
 valgrind: $(PROJ_NAME)
