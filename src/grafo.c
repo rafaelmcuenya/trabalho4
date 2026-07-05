@@ -206,7 +206,7 @@ Aresta adicionarAresta(Grafo g, const char* origem, const char* destino,
     assert(origem != NULL);
     assert(destino != NULL);
     assert(comp >= 0);
-    assert(velMedia > 0);
+    assert(velMedia >= 0);
 
     GrafoStruct* grafo = (GrafoStruct*) g;
     Vertice vOrigem = buscarVertice(g, origem);
