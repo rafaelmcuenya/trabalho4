@@ -14,7 +14,7 @@ LIBS = -lm
 
 # Diretórios
 SRC_DIR = .
-INC_DIR = .
+INC_DIR = ../include
 TST_DIR = ../test
 UNITY_DIR = ../unity
 
