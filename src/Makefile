@@ -19,7 +19,7 @@ TST_DIR = ../test
 UNITY_DIR = ../unity
 
 # Objetos do projeto
-OBJETOS = ted.o leitor.o trataNomeArquivo.o hashfile.o quadra.o \
+OBJETOS = main.o leitor.o trataNomeArquivo.o hashfile.o quadra.o \
           grafo.o dijkstra.o conexos.o disjoint.o agm.o svg.o
 
 # Objetos dos testes 
@@ -36,8 +36,8 @@ $(PROJ_NAME): $(OBJETOS)
 
 
 # Módulo principal
-ted.o: ted.c $(INC_DIR)/leitor.h $(INC_DIR)/trataNomeArquivo.h
-	$(CC) -c $(CFLAGS) -I$(INC_DIR) ted.c -o $@
+main.o: main.c $(INC_DIR)/leitor.h $(INC_DIR)/trataNomeArquivo.h
+	$(CC) -c $(CFLAGS) -I$(INC_DIR) main.c -o $@
 
 # Módulo leitor
 leitor.o: leitor.c $(INC_DIR)/leitor.h $(INC_DIR)/quadra.h \
