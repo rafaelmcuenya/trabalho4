@@ -84,8 +84,12 @@ static Vertice encontrarVerticeMaisProximo(Grafo g, double x, double y) {
     Vertice maisProximo = NULL;
     double menorDistancia = INFINITO;
 
+    printf("[DEBUG] Buscando vértice mais próximo de (%.2f, %.2f)\n", x, y);
+
     Vertice v = primeiroVertice(g);
+    int count = 0;
     while (v != NULL) {
+        count++;
         double vx = getVerticeX(v);
         double vy = getVerticeY(v);
         double dx = vx - x;
@@ -97,6 +101,14 @@ static Vertice encontrarVerticeMaisProximo(Grafo g, double x, double y) {
             maisProximo = v;
         }
         v = proximoVertice(g, v);
+    }
+
+    printf("[DEBUG] Vértices verificados: %d\n", count);
+    if (maisProximo) {
+        printf("[DEBUG] Vértice mais próximo: %s (distância: %.2f)\n", 
+               getVerticeId(maisProximo), menorDistancia);
+    } else {
+        printf("[DEBUG] Nenhum vértice encontrado!\n");
     }
 
     return maisProximo;
@@ -537,8 +549,17 @@ void processarArquivoVia(const char* caminho, const char* inputDir) {
     processarArquivoViaInterno(f);
     fclose(f);
 
-    printf("[VIA] Grafo construído com %d vértices e %d arestas\n",
-           quantVertices(grafo), quantArestas(grafo));
+    int nV = quantVertices(grafo);
+    int nA = quantArestas(grafo);
+    printf("[VIA] Grafo construído com %d vértices e %d arestas\n", nV, nA);
+    
+    Vertice v = primeiroVertice(grafo);
+    if (v) {
+        printf("[VIA] Primeiro vértice: %s (%.2f, %.2f)\n", 
+               getVerticeId(v), getVerticeX(v), getVerticeY(v));
+    } else {
+        printf("[VIA] ERRO: Nenhum vértice no grafo!\n");
+    }
 }
 
 
