@@ -13,6 +13,7 @@
 #include <ctype.h>
 #include <assert.h>
 #include <math.h>
+#include <float.h>
 
 #define MAX_LINHA 1024
 #define TAM_BUFFER_SERIAL 4096
@@ -164,7 +165,7 @@ static void cmdCq(double sw, const char* cfill, const char* cstrk) {
 }
 
 
-static void processarArquivoVia(FILE* f) {
+static void processarArquivoViaInterno(FILE* f) {
     char linha[MAX_LINHA];
     int numVertices = 0;
     int verticesLidos = 0;
@@ -533,7 +534,7 @@ void processarArquivoVia(const char* caminho, const char* inputDir) {
 
     FILE* f;
     abrirArquivo(&f, caminhoCompleto);
-    processarArquivoVia(f);
+    processarArquivoViaInterno(f);
     fclose(f);
 
     printf("[VIA] Grafo construído com %d vértices e %d arestas\n",
