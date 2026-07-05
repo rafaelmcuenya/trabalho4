@@ -186,8 +186,9 @@ void desenharCaminhoAnimado(SVGFile svg, const char* d, const char* stroke,
     
     FILE* f = getArquivoSVG(svg);
     
+    static int id_counter = 0;
     char id[64];
-    snprintf(id, sizeof(id), "caminho_%p", (void*)f);
+    snprintf(id, sizeof(id), "caminho_%d", id_counter++);
     
     fprintf(f, "<path id=\"%s\" d=\"%s\" fill=\"none\" stroke=\"none\"/>\n", id, d);
     
@@ -203,7 +204,6 @@ void desenharCaminhoAnimado(SVGFile svg, const char* d, const char* stroke,
     fprintf(f, "  </animateMotion>\n");
     fprintf(f, "</circle>\n");
 }
-
 
 void desenharPontoReferencia(SVGFile svg, double x, double y, const char* rotulo) {
     assert(svg != NULL);
