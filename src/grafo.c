@@ -205,7 +205,7 @@ Aresta adicionarAresta(Grafo g, const char* origem, const char* destino,
     assert(g != NULL);
     assert(origem != NULL);
     assert(destino != NULL);
-    assert(comp > 0);
+    assert(comp >= 0);
     assert(velMedia > 0);
 
     GrafoStruct* grafo = (GrafoStruct*) g;
