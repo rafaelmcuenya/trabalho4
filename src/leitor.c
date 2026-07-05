@@ -428,7 +428,7 @@ static void cmdP(const char* reg1, const char* reg2, const char* corCurto, const
         }
         
         if (strlen(d) > 0) {
-            desenharCaminhoAnimado(svgFile, d, corCurto, 3.0, "none", 1.0, 3.0, "1");
+            desenharCaminhoAnimado(svgFile, d, corCurto, 3.0, "none", 1.0, 3.0, "indefinite");
         }
     }
 
@@ -457,7 +457,7 @@ static void cmdP(const char* reg1, const char* reg2, const char* corCurto, const
         }
         
         if (strlen(d) > 0) {
-            desenharCaminhoAnimado(svgFile, d, corRapido, 3.0, "none", 1.0, 3.0, "1");
+            desenharCaminhoAnimado(svgFile, d, corRapido, 3.0, "none", 1.0, 3.0, "indefinite");
         }
     }
 
