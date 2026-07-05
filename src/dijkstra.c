@@ -67,30 +67,37 @@ static InfoDijkstra* executarDijkstra(Grafo g, Vertice origem, bool porTempo) {
         int idxU = getIndiceVertice(u);
         info[idxU].visitado = true;
         
-        Aresta a = primeiraArestaAdj(u);
-        while (a != NULL) {
-            if (arestaAtiva(a)) {
-                Vertice destino = getDestino(a);
-                int idxV = getIndiceVertice(destino);
-                
-                if (!info[idxV].visitado) {
-                    double peso;
-                    if (porTempo) {
-                        peso = getComprimento(a) / getVelocidadeMedia(a);
-                    } else {
-                        peso = getComprimento(a);
-                    }
-                    
-                    double novaDist = info[idxU].dist + peso;
-                    if (novaDist < info[idxV].dist) {
-                        info[idxV].dist = novaDist;
-                        info[idxV].predecessor = u;
-                        info[idxV].arestaPredecessora = a;
-                    }
+Aresta a = primeiraArestaAdj(u);
+while (a != NULL) {
+    if (arestaAtiva(a)) {
+        Vertice destino = getDestino(a);
+        int idxV = getIndiceVertice(destino);
+        
+        if (!info[idxV].visitado) {
+            double peso = 0.0;
+            if (porTempo) {
+                double vel = getVelocidadeMedia(a);
+                if (vel > 0) {
+                    peso = getComprimento(a) / vel;
+                } else {
+                    // Velocidade 0 ou negativa: ignora a aresta
+                    a = proximaArestaAdj(u, a);
+                    continue;
                 }
+            } else {
+                peso = getComprimento(a);
             }
-            a = proximaArestaAdj(u, a);
+            
+            double novaDist = info[idxU].dist + peso;
+            if (novaDist < info[idxV].dist) {
+                info[idxV].dist = novaDist;
+                info[idxV].predecessor = u;
+                info[idxV].arestaPredecessora = a;
+              }
+            }
         }
+        a = proximaArestaAdj(u, a);
+     }
     }  
     return info;
 }
