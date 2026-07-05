@@ -19,8 +19,8 @@ TST_DIR = ../test
 UNITY_DIR = ../unity
 
 # Objetos do projeto
-OBJETOS = main.o leitor.o trataNomeArquivo.o hashfile.o quadra.o lista.o \
-          grafo.o dijkstra.o conexos.o disjoint.o agm.o svg.o
+=OBJETOS = main.o leitor.o trataNomeArquivo.o hashfile.o quadra.o lista.o \
+          grafo.o dijkstra.o conexos.o disjoint.o agm.o svg.o heap.o
 
 # Objetos dos testes 
 TEST_OBJETOS = 
@@ -83,6 +83,10 @@ disjoint.o: disjoint.c $(INC_DIR)/disjoint.h $(INC_DIR)/grafo.h
 # AGM (Árvore Geradora Mínima)
 agm.o: agm.c $(INC_DIR)/agm.h $(INC_DIR)/grafo.h $(INC_DIR)/disjoint.h $(INC_DIR)/lista.h
 	$(CC) -c $(CFLAGS) -I$(INC_DIR) agm.c -o $@
+
+# Heap (Fila de Prioridade)
+heap.o: heap.c $(INC_DIR)/heap.h
+	$(CC) -c $(CFLAGS) -I$(INC_DIR) heap.c -o $@
 
 # SVG
 svg.o: svg.c $(INC_DIR)/svg.h $(INC_DIR)/quadra.h $(INC_DIR)/hashfile.h $(INC_DIR)/grafo.h
