@@ -355,7 +355,7 @@ static void cmdExp(double vl) {
 }
 
 
-static void cmdP(const char* reg1, const char* reg2, const char* corCurto, const char* corRapido) {
+static void cmdP(char reg1, char reg2, const char* corCurto, const char* corRapido) {
     int idx1 = obterIndiceRegistrador(reg1);
     int idx2 = obterIndiceRegistrador(reg2);
 
@@ -402,6 +402,64 @@ static void cmdP(const char* reg1, const char* reg2, const char* corCurto, const
 
     desenharPontoReferencia(svgFile, registradores[idx1].x, registradores[idx1].y, "I");
     desenharPontoReferencia(svgFile, registradores[idx2].x, registradores[idx2].y, "F");
+
+    if (caminhoCurto) {
+        char d[16384] = "";
+        char segmento[256];
+        int numArestas = tamanhoCaminho(caminhoCurto);
+        
+        for (int i = 0; i < numArestas; i++) {
+            Aresta a = getArestaCaminho(caminhoCurto, i);
+            if (a) {
+                Vertice origem = getOrigem(a);
+                Vertice destino = getDestino(a);
+                double x1 = getVerticeX(origem);
+                double y1 = getVerticeY(origem);
+                double x2 = getVerticeX(destino);
+                double y2 = getVerticeY(destino);
+                
+                if (i == 0) {
+                    snprintf(segmento, sizeof(segmento), "M%.2f %.2f L%.2f %.2f", x1, y1, x2, y2);
+                } else {
+                    snprintf(segmento, sizeof(segmento), " L%.2f %.2f", x2, y2);
+                }
+                strncat(d, segmento, sizeof(d) - strlen(d) - 1);
+            }
+        }
+        
+        if (strlen(d) > 0) {
+            desenharCaminhoAnimado(svgFile, d, corCurto, 3.0, "none", 1.0, 3.0, "1");
+        }
+    }
+
+    if (caminhoRapido) {
+        char d[16384] = "";
+        char segmento[256];
+        int numArestas = tamanhoCaminho(caminhoRapido);
+        
+        for (int i = 0; i < numArestas; i++) {
+            Aresta a = getArestaCaminho(caminhoRapido, i);
+            if (a) {
+                Vertice origem = getOrigem(a);
+                Vertice destino = getDestino(a);
+                double x1 = getVerticeX(origem);
+                double y1 = getVerticeY(origem);
+                double x2 = getVerticeX(destino);
+                double y2 = getVerticeY(destino);
+                
+                if (i == 0) {
+                    snprintf(segmento, sizeof(segmento), "M%.2f %.2f L%.2f %.2f", x1, y1, x2, y2);
+                } else {
+                    snprintf(segmento, sizeof(segmento), " L%.2f %.2f", x2, y2);
+                }
+                strncat(d, segmento, sizeof(d) - strlen(d) - 1);
+            }
+        }
+        
+        if (strlen(d) > 0) {
+            desenharCaminhoAnimado(svgFile, d, corRapido, 3.0, "none", 1.0, 3.0, "1");
+        }
+    }
 
     deletaCaminho(caminhoCurto);
     deletaCaminho(caminhoRapido);
