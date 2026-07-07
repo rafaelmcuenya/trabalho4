@@ -136,33 +136,27 @@ static Lista* construirAdjacenciaNaoDirecionada(Grafo g, double vl) {
         }
     }
     
-    GrafoStruct* grafo = (GrafoStruct*) g;
-    No noAresta = primeiroNo(grafo->arestas);
-    
-    while (noAresta != NULL) {
-        ArestaStruct* a = (ArestaStruct*) getInfo(noAresta);
-        if (a != NULL && arestaAtiva(a) && getVelocidadeMedia(a) >= vl) {
-            Vertice origem = a->origem;
-            Vertice destino = a->destino;
-            int idxOrigem = getIndiceVertice(origem);
-            int idxDestino = getIndiceVertice(destino);
-            
-            bool existe = false;
-            No no = primeiroNo(adj[idxOrigem]);
-            while (no != NULL) {
-                if (getInfo(no) == destino) {
-                    existe = true;
-                    break;
+    Vertice v = primeiroVertice(g);
+    while (v != NULL) {
+        Aresta a = primeiraArestaAdj(v);
+        while (a != NULL) {
+            if (arestaAtiva(a) && getVelocidadeMedia(a) >= vl) {
+                Vertice origem = getOrigem(a);
+                Vertice destino = getDestino(a);
+                int idxOrigem = getIndiceVertice(origem);
+                int idxDestino = getIndiceVertice(destino);
+                
+                const char* idOrigem = getVerticeId(origem);
+                const char* idDestino = getVerticeId(destino);
+                
+                if (strcmp(idOrigem, idDestino) < 0) {
+                    inserirFim(adj[idxOrigem], destino);
+                    inserirFim(adj[idxDestino], origem);
                 }
-                no = proximoNo(no);
             }
-            
-            if (!existe) {
-                inserirFim(adj[idxOrigem], destino);
-                inserirFim(adj[idxDestino], origem);
-            }
+            a = proximaArestaAdj(v, a);
         }
-        noAresta = proximoNo(noAresta);
+        v = proximoVertice(g, v);
     }
     
     return adj;
