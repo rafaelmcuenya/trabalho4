@@ -146,13 +146,8 @@ static Lista* construirAdjacenciaNaoDirecionada(Grafo g, double vl) {
                 int idxOrigem = getIndiceVertice(origem);
                 int idxDestino = getIndiceVertice(destino);
                 
-                const char* idOrigem = getVerticeId(origem);
-                const char* idDestino = getVerticeId(destino);
-                
-                if (strcmp(idOrigem, idDestino) < 0) {
-                    inserirFim(adj[idxOrigem], destino);
-                    inserirFim(adj[idxDestino], origem);
-                }
+                inserirFim(adj[idxOrigem], destino);
+                inserirFim(adj[idxDestino], origem);
             }
             a = proximaArestaAdj(v, a);
         }
