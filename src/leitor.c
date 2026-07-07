@@ -288,10 +288,12 @@ static void cmdMvm(double x, double y, double w, double h, double v) {
 
     Vertice vertice = primeiroVertice(grafo);
     int arestasAtualizadas = 0;
+    int arestasVerificadas = 0;
 
     while (vertice != NULL) {
         Aresta a = primeiraArestaAdj(vertice);
         while (a != NULL) {
+            arestasVerificadas++;
             Vertice origem = getOrigem(a);
             Vertice destino = getDestino(a);
             double x1 = getVerticeX(origem);
@@ -299,19 +301,51 @@ static void cmdMvm(double x, double y, double w, double h, double v) {
             double x2 = getVerticeX(destino);
             double y2 = getVerticeY(destino);
 
+            bool dentro = false;
+            
+            if ((x1 >= x && x1 <= x + w && y1 >= y && y1 <= y + h) ||
+                (x2 >= x && x2 <= x + w && y2 >= y && y2 <= y + h)) {
+                dentro = true;
+            }
+            
             double midX = (x1 + x2) / 2.0;
             double midY = (y1 + y2) / 2.0;
-
             if (midX >= x && midX <= x + w && midY >= y && midY <= y + h) {
+                dentro = true;
+            }
+            
+            if (!dentro) {
+                int numPontos = 10;
+                for (int i = 1; i < numPontos; i++) {
+                    double t = (double)i / numPontos;
+                    double px = x1 + t * (x2 - x1);
+                    double py = y1 + t * (y2 - y1);
+                    if (px >= x && px <= x + w && py >= y && py <= y + h) {
+                        dentro = true;
+                        break;
+                    }
+                }
+            }
+
+            if (dentro) {
+                double velAntiga = getVelocidadeMedia(a);
                 setVelocidadeMedia(a, v);
                 arestasAtualizadas++;
+                
+                const char* nomeRua = getNomeRua(a);
+                printf("[DEBUG] Aresta atualizada: %s->%s, vel: %.2f->%.2f, rua: %s\n",
+                       getVerticeId(origem), getVerticeId(destino),
+                       velAntiga, v, nomeRua ? nomeRua : "sem nome");
             }
             a = proximaArestaAdj(vertice, a);
         }
         vertice = proximoVertice(grafo, vertice);
     }
 
-    fprintf(arquivoTxt, "Arestas atualizadas: %d\n", arestasAtualizadas);
+    fprintf(arquivoTxt, "Arestas verificadas: %d, atualizadas: %d\n", 
+            arestasVerificadas, arestasAtualizadas);
+    printf("[DEBUG] mvm: verificadas=%d, atualizadas=%d\n", 
+           arestasVerificadas, arestasAtualizadas);
 }
 
 
