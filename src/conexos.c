@@ -69,6 +69,7 @@ static void adicionarVerticeComponente(ComponenteStruct* c, Vertice v) {
     if (y > c->maxY) c->maxY = y;
 }
 
+
 static void finalizarBoundingBox(ComponenteStruct* c) {
     assert(c != NULL);
     
@@ -77,17 +78,14 @@ static void finalizarBoundingBox(ComponenteStruct* c) {
     c->bboxW = c->maxX - c->minX;
     c->bboxH = c->maxY - c->minY;
     
-    double marginX = c->bboxW * 0.1;
-    double marginY = c->bboxH * 0.1;
+    if (c->bboxW < 1.0) c->bboxW = 1.0;
+    if (c->bboxH < 1.0) c->bboxH = 1.0;
     
-    if (marginX < 1.0) marginX = 1.0;
-    if (marginY < 1.0) marginY = 1.0;
-    
-    c->bboxX -= marginX;
-    c->bboxY -= marginY;
-    c->bboxW += 2 * marginX;
-    c->bboxH += 2 * marginY;
+    printf("[DEBUG] Componente BBox: (%.2f,%.2f) %.2fx%.2f, vértices=%d\n",
+           c->bboxX, c->bboxY, c->bboxW, c->bboxH, 
+           tamanhoLista(c->vertices));
 }
+
 
 static void atribuirCor(ComponenteStruct* c, int indice) {
     assert(c != NULL);
