@@ -117,9 +117,9 @@ static void dfs(Vertice v, DFSContext* ctx) {
     }
 }
 
+
 static Lista* construirAdjacenciaNaoDirecionada(Grafo g, double vl) {
     int numVertices = quantVertices(g);
-    
     if (numVertices == 0) return NULL;
     
     Lista* adj = calloc(numVertices, sizeof(Lista));
@@ -136,26 +136,38 @@ static Lista* construirAdjacenciaNaoDirecionada(Grafo g, double vl) {
         }
     }
     
-    Vertice v = primeiroVertice(g);
-    while (v != NULL) {
-        Aresta a = primeiraArestaAdj(v);
-        while (a != NULL) {
-            if (arestaAtiva(a) && getVelocidadeMedia(a) >= vl) {
-                Vertice origem = getOrigem(a);
-                Vertice destino = getDestino(a);
-                int idxOrigem = getIndiceVertice(origem);
-                int idxDestino = getIndiceVertice(destino);
-                
+    GrafoStruct* grafo = (GrafoStruct*) g;
+    No noAresta = primeiroNo(grafo->arestas);
+    
+    while (noAresta != NULL) {
+        ArestaStruct* a = (ArestaStruct*) getInfo(noAresta);
+        if (a != NULL && arestaAtiva(a) && getVelocidadeMedia(a) >= vl) {
+            Vertice origem = a->origem;
+            Vertice destino = a->destino;
+            int idxOrigem = getIndiceVertice(origem);
+            int idxDestino = getIndiceVertice(destino);
+            
+            bool existe = false;
+            No no = primeiroNo(adj[idxOrigem]);
+            while (no != NULL) {
+                if (getInfo(no) == destino) {
+                    existe = true;
+                    break;
+                }
+                no = proximoNo(no);
+            }
+            
+            if (!existe) {
                 inserirFim(adj[idxOrigem], destino);
                 inserirFim(adj[idxDestino], origem);
             }
-            a = proximaArestaAdj(v, a);
         }
-        v = proximoVertice(g, v);
+        noAresta = proximoNo(noAresta);
     }
     
     return adj;
 }
+
 
 static void liberarAdjacenciaNaoDirecionada(Lista* adj, int numVertices) {
     if (adj == NULL) return;
