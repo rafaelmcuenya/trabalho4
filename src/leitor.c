@@ -311,6 +311,9 @@ static bool segmentoIntersectaRetangulo(double x1, double y1, double x2, double 
         pontoNoRetangulo(x2, y2, rx, ry, rw, rh)) {
         return true;
     }
+
+    if (rw < 0) { rx += rw; rw = -rw; }
+    if (rh < 0) { ry += rh; rh = -rh; }
     
     if (segmentoIntersectaSegmento(x1, y1, x2, y2, rx, ry, rx + rw, ry)) return true;
     if (segmentoIntersectaSegmento(x1, y1, x2, y2, rx, ry + rh, rx + rw, ry + rh)) return true;
@@ -321,7 +324,7 @@ static bool segmentoIntersectaRetangulo(double x1, double y1, double x2, double 
 }
 
 
-static void cmdMvm(double x, double y, double w, double h, double v) {
+static void cmdMvm(double v, double x, double y, double w, double h) {
     fprintf(arquivoTxt, "[*] mvm %.2f %.2f %.2f %.2f %.2f\n", x, y, w, h, v);
 
     Vertice vertice = primeiroVertice(grafo);
@@ -566,11 +569,11 @@ static void processarComandoQry(const char* linha) {
         cmdAtO(reg, cep, face[0], num);  
      }
    } else if (strcmp(comando, "mvm") == 0) {
-        double x, y, w, h, v;
-        if (sscanf(linha, "%*s %lf %lf %lf %lf %lf", &x, &y, &w, &h, &v) == 5) {
-            cmdMvm(x, y, w, h, v);
-         }
-    } else if (strcmp(comando, "regs") == 0) {
+    double v, x, y, w, h;  
+    if (sscanf(linha, "%*s %lf %lf %lf %lf %lf", &v, &x, &y, &w, &h) == 5) {
+        cmdMvm(v, x, y, w, h);
+    }
+} else if (strcmp(comando, "regs") == 0) {
         double vl;
         if (sscanf(linha, "%*s %lf", &vl) == 1) {
             cmdRegs(vl);
