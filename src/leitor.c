@@ -288,19 +288,16 @@ static void cmdMvm(double x, double y, double w, double h, double v) {
 
     Vertice vertice = primeiroVertice(grafo);
     int arestasAtualizadas = 0;
-    int arestasVerificadas = 0;
 
     while (vertice != NULL) {
         Aresta a = primeiraArestaAdj(vertice);
         while (a != NULL) {
-            arestasVerificadas++;
             Vertice origem = getOrigem(a);
             Vertice destino = getDestino(a);
             double x1 = getVerticeX(origem);
             double y1 = getVerticeY(origem);
             double x2 = getVerticeX(destino);
             double y2 = getVerticeY(destino);
-
             bool dentro = false;
             
             if ((x1 >= x && x1 <= x + w && y1 >= y && y1 <= y + h) ||
@@ -315,7 +312,8 @@ static void cmdMvm(double x, double y, double w, double h, double v) {
             }
             
             if (!dentro) {
-                int numPontos = 10;
+                double comp = getComprimento(a);
+                int numPontos = (int)(comp / 10.0) + 2;
                 for (int i = 1; i < numPontos; i++) {
                     double t = (double)i / numPontos;
                     double px = x1 + t * (x2 - x1);
@@ -328,26 +326,16 @@ static void cmdMvm(double x, double y, double w, double h, double v) {
             }
 
             if (dentro) {
-                double velAntiga = getVelocidadeMedia(a);
                 setVelocidadeMedia(a, v);
                 arestasAtualizadas++;
-                
-                const char* nomeRua = getNomeRua(a);
-                printf("[DEBUG] Aresta atualizada: %s->%s, vel: %.2f->%.2f, rua: %s\n",
-                       getVerticeId(origem), getVerticeId(destino),
-                       velAntiga, v, nomeRua ? nomeRua : "sem nome");
             }
             a = proximaArestaAdj(vertice, a);
         }
         vertice = proximoVertice(grafo, vertice);
     }
 
-    fprintf(arquivoTxt, "Arestas verificadas: %d, atualizadas: %d\n", 
-            arestasVerificadas, arestasAtualizadas);
-    printf("[DEBUG] mvm: verificadas=%d, atualizadas=%d\n", 
-           arestasVerificadas, arestasAtualizadas);
+    fprintf(arquivoTxt, "Arestas atualizadas: %d\n", arestasAtualizadas);
 }
-
 
 static void cmdRegs(double vl) {
     fprintf(arquivoTxt, "[*] regs %.2f\n", vl);
