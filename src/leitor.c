@@ -283,6 +283,44 @@ static void cmdAtO(const char* reg, const char* cep, char face, int num) {
 }
 
 
+static bool pontoNoRetangulo(double px, double py, double rx, double ry, double rw, double rh) {
+    return (px >= rx && px <= rx + rw && py >= ry && py <= ry + rh);
+}
+
+
+static bool segmentoIntersectaSegmento(double ax, double ay, double bx, double by,
+                                       double cx, double cy, double dx, double dy) {
+    double s1_x = bx - ax;
+    double s1_y = by - ay;
+    double s2_x = dx - cx;
+    double s2_y = dy - cy;
+    
+    double denominador = (-s2_x * s1_y + s1_x * s2_y);
+    if (denominador == 0) return false; 
+    
+    double s = (-s1_y * (ax - cx) + s1_x * (ay - cy)) / denominador;
+    double t = ( s2_x * (ay - cy) - s2_y * (ax - cx)) / denominador;
+    
+    return (s >= 0 && s <= 1 && t >= 0 && t <= 1);
+}
+
+
+static bool segmentoIntersectaRetangulo(double x1, double y1, double x2, double y2,
+                                        double rx, double ry, double rw, double rh) {
+    if (pontoNoRetangulo(x1, y1, rx, ry, rw, rh) ||
+        pontoNoRetangulo(x2, y2, rx, ry, rw, rh)) {
+        return true;
+    }
+    
+    if (segmentoIntersectaSegmento(x1, y1, x2, y2, rx, ry, rx + rw, ry)) return true;
+    if (segmentoIntersectaSegmento(x1, y1, x2, y2, rx, ry + rh, rx + rw, ry + rh)) return true;
+    if (segmentoIntersectaSegmento(x1, y1, x2, y2, rx, ry, rx, ry + rh)) return true;
+    if (segmentoIntersectaSegmento(x1, y1, x2, y2, rx + rw, ry, rx + rw, ry + rh)) return true;
+    
+    return false;
+}
+
+
 static void cmdMvm(double x, double y, double w, double h, double v) {
     fprintf(arquivoTxt, "[*] mvm %.2f %.2f %.2f %.2f %.2f\n", x, y, w, h, v);
 
@@ -298,36 +336,16 @@ static void cmdMvm(double x, double y, double w, double h, double v) {
             double y1 = getVerticeY(origem);
             double x2 = getVerticeX(destino);
             double y2 = getVerticeY(destino);
-            bool dentro = false;
             
-            if ((x1 >= x && x1 <= x + w && y1 >= y && y1 <= y + h) ||
-                (x2 >= x && x2 <= x + w && y2 >= y && y2 <= y + h)) {
-                dentro = true;
-            }
-            
-            double midX = (x1 + x2) / 2.0;
-            double midY = (y1 + y2) / 2.0;
-            if (midX >= x && midX <= x + w && midY >= y && midY <= y + h) {
-                dentro = true;
-            }
-            
-            if (!dentro) {
-                double comp = getComprimento(a);
-                int numPontos = (int)(comp / 10.0) + 2;
-                for (int i = 1; i < numPontos; i++) {
-                    double t = (double)i / numPontos;
-                    double px = x1 + t * (x2 - x1);
-                    double py = y1 + t * (y2 - y1);
-                    if (px >= x && px <= x + w && py >= y && py <= y + h) {
-                        dentro = true;
-                        break;
-                    }
-                }
-            }
-
-            if (dentro) {
+            if (segmentoIntersectaRetangulo(x1, y1, x2, y2, x, y, w, h)) {
+                double velAntiga = getVelocidadeMedia(a);
                 setVelocidadeMedia(a, v);
                 arestasAtualizadas++;
+                
+                const char* id1 = getVerticeId(origem);
+                const char* id2 = getVerticeId(destino);
+                printf("[DEBUG] mvm: %s->%s, vel: %.2f->%.2f\n", 
+                       id1, id2, velAntiga, v);
             }
             a = proximaArestaAdj(vertice, a);
         }
@@ -335,7 +353,9 @@ static void cmdMvm(double x, double y, double w, double h, double v) {
     }
 
     fprintf(arquivoTxt, "Arestas atualizadas: %d\n", arestasAtualizadas);
+    printf("[DEBUG] mvm: atualizadas=%d\n", arestasAtualizadas);
 }
+
 
 static void cmdRegs(double vl) {
     fprintf(arquivoTxt, "[*] regs %.2f\n", vl);
